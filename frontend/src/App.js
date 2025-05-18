@@ -1,45 +1,51 @@
-import { Routes, Route, useLocation } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
-import { useEffect } from "react";
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { Toaster } from 'react-hot-toast';
+import DashboardLayout from './components/DashboardLayout';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import Dashboard from './pages/dashboard/Dashboard';
+import Products from './pages/products/Products';
+import Categories from './pages/categories/Categories';
+import Orders from './pages/orders/Orders';
+import Customers from './pages/customers/Customers';
+import Reports from './pages/reports/Reports';
+import Settings from './pages/settings/Settings';
+import DataImport from './pages/data-import/DataImport';
 
-import "./App.css";
-import HomePage from "./pages/home/HomePage";
-import RegisterPage from "./pages/register/RegisterPage";
-import LoginPage from "./pages/login/LoginPage";
-import ProfilePage from "./pages/profile/ProfilePage";
-import AboutPage from "./pages/about/About";
-import ContactPage from "./pages/contact/Contact";
-import PricingPage from "./pages/pricing/Pricing";
-import FAQPage from "./pages/faq/Faq";
-
-// admin
-import Home from "./admin/pages/Home";
-
-function App() {
-  const location = useLocation();
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location]);
+const App = () => {
+  const { userInfo } = useSelector((state) => state.auth);
 
   return (
-    <div className="App">
+    <Router>
+      <Toaster position="top-right" />
       <Routes>
-        <Route index path="/" element={<HomePage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/faq" element={<FAQPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="*" element={<HomePage />} />
-        {/* admin routes */}
-        <Route path="/dashboard" element={<Home />} />
+        {/* Public Routes */}
+        <Route path="/login" element={!userInfo ? <Login /> : <Navigate to="/dashboard" />} />
+        <Route path="/register" element={!userInfo ? <Register /> : <Navigate to="/dashboard" />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/"
+          element={userInfo ? <DashboardLayout /> : <Navigate to="/login" />}
+        >
+          <Route index element={<Navigate to="/dashboard" />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="products" element={<Products />} />
+          <Route path="categories" element={<Categories />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="data-import" element={<DataImport />} />
+        </Route>
+
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      <Toaster />
-    </div>
+    </Router>
   );
-}
+};
 
 export default App;

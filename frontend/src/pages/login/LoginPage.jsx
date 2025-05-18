@@ -1,17 +1,19 @@
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 
 import MainLayout from "../../components/MainLayout";
+import GoogleSignIn from "../../components/GoogleSignIn";
 import { login } from "../../services/index/users";
 import { userActions } from "../../store/reducers/userReducers";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
   const userState = useSelector((state) => state.user);
 
   const { mutate, isLoading } = useMutation({
@@ -21,16 +23,17 @@ const LoginPage = () => {
     onSuccess: (data) => {
       dispatch(userActions.setUserInfo(data));
       localStorage.setItem("account", JSON.stringify(data));
+      toast.success("Successfully signed in!");
+      navigate(location?.state?.from?.pathname || "/dashboard");
     },
     onError: (error) => {
-      toast.error(error.message);
-      console.log(error);
+      toast.error(error?.response?.data?.message || "Something went wrong!");
     },
   });
 
   useEffect(() => {
     if (userState.userInfo) {
-      navigate("/");
+      navigate("/dashboard");
     }
   }, [navigate, userState.userInfo]);
 
@@ -133,10 +136,16 @@ const LoginPage = () => {
               disabled={!isValid || isLoading}
               className="bg-primary text-white font-bold text-lg py-4 px-8 w-full rounded-lg my-6 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Sign In
+              {isLoading ? "Signing in..." : "Sign In"}
             </button>
-            <p className="text-sm font-semibold text-[#5a7184]">
-              Do not have an account?{" "}
+            <div className="relative flex items-center justify-center my-6">
+              <div className="border-t border-gray-300 w-full"></div>
+              <span className="bg-white px-4 text-gray-500 text-sm">or</span>
+              <div className="border-t border-gray-300 w-full"></div>
+            </div>
+            <GoogleSignIn />
+            <p className="text-sm font-semibold text-[#5a7184] mt-6 text-center">
+              Don't have an account?{" "}
               <Link to="/register" className="text-primary">
                 Register now
               </Link>

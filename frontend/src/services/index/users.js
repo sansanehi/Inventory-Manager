@@ -91,3 +91,18 @@ export const updateProfilePicture = async ({ token, formData }) => {
     throw new Error(error.message);
   }
 };
+
+export const googleSignIn = async () => {
+  try {
+    const { data } = await axios.post('/api/users/google-signin', {}, {
+      withCredentials: true
+    });
+    return data;
+  } catch (error) {
+    console.error('Google sign-in error:', error);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw new Error('Failed to sign in with Google. Please try again.');
+  }
+};

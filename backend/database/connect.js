@@ -3,15 +3,14 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     mongoose.set("strictQuery", false);
-    await mongoose.connect(process.env.MONGO_URI, {
+    const conn = await mongoose.connect("mongodb://localhost:27017/inventory-management", {
       useNewUrlParser: true,
-      useUnifiedTopology: true,
-      // useCreateIndex:true,
-      // useFindAndModify:false,
+      useUnifiedTopology: true
     });
-    console.log("connected to database.");
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.log(error.message);
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
   }
 };
 

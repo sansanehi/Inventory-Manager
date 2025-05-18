@@ -11,8 +11,13 @@ const {
   forgotPassword,
   resetPassword,
 } = require("../controllers/userController");
+const { googleSignIn } = require("../controllers/googleAuthController");
 const { protect, authGuard } = require("../middleware/authMiddleware");
 
+// Google Sign In
+router.post("/google-signin", googleSignIn);
+
+// Regular authentication routes
 router.post("/register", register);
 router.post("/login", login);
 router.get("/logout", logout);
