@@ -1,117 +1,141 @@
-import React, { useState, useEffect } from 'react';
-import { FaSave, FaUser, FaStore, FaBell, FaLock, FaPalette } from 'react-icons/fa';
-import { toast } from 'react-hot-toast';
-import { authStore } from '../../store/localStore';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  FaSave,
+  FaUser,
+  FaStore,
+  FaBell,
+  FaLock,
+  FaPalette,
+} from "react-icons/fa";
+import { toast } from "react-hot-toast";
+import { supabase } from "../../config/supabase";
+import {
+  fetchSettings,
+  upsertSettings,
+  subscribeToSettings,
+} from "../../services/index/settings";
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState({
     profile: {
-      name: '',
-      email: '',
-      phone: '',
-      role: ''
+      name: "",
+      email: "",
+      phone: "",
+      role: "",
     },
     store: {
-      storeName: '',
-      address: '',
-      phone: '',
-      email: '',
-      taxId: '',
-      currency: 'USD'
+      storeName: "",
+      address: "",
+      phone: "",
+      email: "",
+      taxId: "",
+      currency: "USD",
     },
     notifications: {
       emailNotifications: true,
       lowStockAlerts: true,
       orderUpdates: true,
       salesReports: true,
-      alertThreshold: 10
+      alertThreshold: 10,
     },
     security: {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-      twoFactorAuth: false
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      twoFactorAuth: false,
     },
     appearance: {
-      theme: 'light',
-      primaryColor: '#3B82F6',
-      fontSize: 'medium',
-      compactMode: false
-    }
+      theme: "light",
+      primaryColor: "#3B82F6",
+      fontSize: "medium",
+      compactMode: false,
+    },
   });
+  const [userId, setUserId] = useState(null);
+  const [settingsSub, setSettingsSub] = useState(null);
 
+  // Fetch user and settings on mount
   useEffect(() => {
-    loadSettings();
+    const load = async () => {
+      setLoading(true);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+          setSettings((prev) => ({
+            ...prev,
+            profile: {
+              name: user.user_metadata?.name || "",
+              email: user.email || "",
+              phone: user.user_metadata?.phone || "",
+              role: user.user_metadata?.role || "",
+            },
+          }));
+          const dbSettings = await fetchSettings(user.id);
+          if (dbSettings) {
+            setSettings((prev) => ({ ...prev, ...dbSettings.settings }));
+          }
+        }
+      } catch (error) {
+        toast.error("Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  const loadSettings = () => {
-    setLoading(true);
-    try {
-      const currentUser = authStore.getCurrentUser();
-      if (currentUser) {
-        setSettings(prev => ({
-          ...prev,
-          profile: {
-            name: currentUser.name || '',
-            email: currentUser.email || '',
-            phone: currentUser.phone || '',
-            role: currentUser.role || ''
-          }
-        }));
+  // Real-time subscription
+  useEffect(() => {
+    if (!userId) return;
+    if (settingsSub) settingsSub.unsubscribe();
+    const sub = subscribeToSettings(userId, (newSettings) => {
+      if (newSettings && newSettings.settings) {
+        setSettings((prev) => ({ ...prev, ...newSettings.settings }));
       }
-      // Load other settings from localStorage
-      const savedSettings = localStorage.getItem('app_settings');
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(prev => ({
-          ...prev,
-          ...parsedSettings
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      toast.error('Failed to load settings');
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+    setSettingsSub(sub);
+    return () => sub.unsubscribe();
+  }, [userId]);
 
   const handleInputChange = (section, field, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [section]: {
         ...prev[section],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = useCallback(async () => {
     setLoading(true);
     try {
-      // Save settings to localStorage
-      localStorage.setItem('app_settings', JSON.stringify(settings));
-      
-      // Update user profile if changed
-      const currentUser = authStore.getCurrentUser();
-      if (currentUser) {
-        const updatedUser = {
-          ...currentUser,
-          ...settings.profile
-        };
-        authStore.setCurrentUser(updatedUser);
-      }
-
-      toast.success('Settings saved successfully');
+      if (!userId) throw new Error("User not found");
+      // Save all settings except profile to Supabase
+      await upsertSettings(userId, {
+        settings: { ...settings, profile: undefined },
+      });
+      // Update profile info in Supabase Auth
+      await supabase.auth.updateUser({
+        data: {
+          name: settings.profile.name,
+          phone: settings.profile.phone,
+          role: settings.profile.role,
+        },
+        email: settings.profile.email,
+      });
+      toast.success("Settings saved successfully");
     } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
+      toast.error("Failed to save settings");
     } finally {
       setLoading(false);
     }
-  };
+  }, [settings, userId]);
 
   if (loading) {
     return (
@@ -127,7 +151,6 @@ const Settings = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Settings</h1>
           <button
             onClick={handleSaveSettings}
             className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center"
@@ -142,120 +165,128 @@ const Settings = () => {
         <div className="bg-white rounded-lg shadow-md mb-6">
           <div className="flex border-b">
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={() => setActiveTab("profile")}
               className={`px-6 py-4 flex items-center space-x-2 ${
-                activeTab === 'profile'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-600 hover:text-primary'
+                activeTab === "profile"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-600 hover:text-primary"
               }`}
             >
               <FaUser />
               <span>Profile</span>
             </button>
             <button
-              onClick={() => setActiveTab('store')}
+              onClick={() => setActiveTab("store")}
               className={`px-6 py-4 flex items-center space-x-2 ${
-                activeTab === 'store'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-600 hover:text-primary'
+                activeTab === "store"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-600 hover:text-primary"
               }`}
             >
               <FaStore />
               <span>Store</span>
             </button>
             <button
-              onClick={() => setActiveTab('notifications')}
+              onClick={() => setActiveTab("notifications")}
               className={`px-6 py-4 flex items-center space-x-2 ${
-                activeTab === 'notifications'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-600 hover:text-primary'
+                activeTab === "notifications"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-600 hover:text-primary"
               }`}
             >
               <FaBell />
               <span>Notifications</span>
             </button>
             <button
-              onClick={() => setActiveTab('security')}
+              onClick={() => setActiveTab("security")}
               className={`px-6 py-4 flex items-center space-x-2 ${
-                activeTab === 'security'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-600 hover:text-primary'
+                activeTab === "security"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-600 hover:text-primary"
               }`}
             >
               <FaLock />
               <span>Security</span>
             </button>
             <button
-              onClick={() => setActiveTab('appearance')}
+              onClick={() => setActiveTab("appearance")}
               className={`px-6 py-4 flex items-center space-x-2 ${
-                activeTab === 'appearance'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-600 hover:text-primary'
+                activeTab === "appearance"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-600 hover:text-primary"
               }`}
             >
               <FaPalette />
               <span>Appearance</span>
-        </button>
+            </button>
           </div>
-      </div>
+        </div>
 
         {/* Settings Content */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          {activeTab === 'profile' && (
+          {activeTab === "profile" && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold mb-4">Profile Settings</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Name
                   </label>
-          <input
-            type="text"
+                  <input
+                    type="text"
                     value={settings.profile.name}
-                    onChange={(e) => handleInputChange('profile', 'name', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("profile", "name", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div>
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
                   </label>
-          <input
-            type="email"
+                  <input
+                    type="email"
                     value={settings.profile.email}
-                    onChange={(e) => handleInputChange('profile', 'email', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("profile", "email", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div>
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phone
                   </label>
-          <input
-            type="tel"
+                  <input
+                    type="tel"
                     value={settings.profile.phone}
-                    onChange={(e) => handleInputChange('profile', 'phone', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("profile", "phone", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div>
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Role
                   </label>
-          <input
-            type="text"
+                  <input
+                    type="text"
                     value={settings.profile.role}
-                    onChange={(e) => handleInputChange('profile', 'role', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("profile", "role", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            disabled
-          />
-        </div>
-      </div>
-    </div>
+                    disabled
+                  />
+                </div>
+              </div>
+            </div>
           )}
 
-          {activeTab === 'store' && (
-    <div className="space-y-6">
+          {activeTab === "store" && (
+            <div className="space-y-6">
               <h2 className="text-xl font-semibold mb-4">Store Settings</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -265,18 +296,22 @@ const Settings = () => {
                   <input
                     type="text"
                     value={settings.store.storeName}
-                    onChange={(e) => handleInputChange('store', 'storeName', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "storeName", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
-      <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Address
                   </label>
-        <input
-          type="text"
+                  <input
+                    type="text"
                     value={settings.store.address}
-                    onChange={(e) => handleInputChange('store', 'address', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "address", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -287,7 +322,9 @@ const Settings = () => {
                   <input
                     type="tel"
                     value={settings.store.phone}
-                    onChange={(e) => handleInputChange('store', 'phone', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "phone", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -298,103 +335,143 @@ const Settings = () => {
                   <input
                     type="email"
                     value={settings.store.email}
-                    onChange={(e) => handleInputChange('store', 'email', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "email", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-      <div>
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Tax ID
                   </label>
                   <input
                     type="text"
                     value={settings.store.taxId}
-                    onChange={(e) => handleInputChange('store', 'taxId', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "taxId", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-      <div>
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Currency
                   </label>
                   <select
                     value={settings.store.currency}
-                    onChange={(e) => handleInputChange('store', 'currency', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("store", "currency", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-          <option value="USD">USD ($)</option>
-          <option value="EUR">EUR (€)</option>
-          <option value="GBP">GBP (£)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
                     <option value="INR">INR (₹)</option>
-        </select>
-      </div>
-    </div>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
-          {activeTab === 'notifications' && (
-    <div className="space-y-6">
-              <h2 className="text-xl font-semibold mb-4">Notification Settings</h2>
+          {activeTab === "notifications" && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold mb-4">
+                Notification Settings
+              </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-medium">Email Notifications</h3>
-                    <p className="text-sm text-gray-500">Receive notifications via email</p>
+                    <p className="text-sm text-gray-500">
+                      Receive notifications via email
+                    </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.notifications.emailNotifications}
-                      onChange={(e) => handleInputChange('notifications', 'emailNotifications', e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "notifications",
+                          "emailNotifications",
+                          e.target.checked
+                        )
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                   </label>
                 </div>
-      <div className="flex items-center justify-between">
-        <div>
+                <div className="flex items-center justify-between">
+                  <div>
                     <h3 className="font-medium">Low Stock Alerts</h3>
-                    <p className="text-sm text-gray-500">Get notified when inventory is low</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+                    <p className="text-sm text-gray-500">
+                      Get notified when inventory is low
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.notifications.lowStockAlerts}
-                      onChange={(e) => handleInputChange('notifications', 'lowStockAlerts', e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "notifications",
+                          "lowStockAlerts",
+                          e.target.checked
+                        )
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-        </label>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
                     <h3 className="font-medium">Order Updates</h3>
-                    <p className="text-sm text-gray-500">Receive notifications for order status changes</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+                    <p className="text-sm text-gray-500">
+                      Receive notifications for order status changes
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.notifications.orderUpdates}
-                      onChange={(e) => handleInputChange('notifications', 'orderUpdates', e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "notifications",
+                          "orderUpdates",
+                          e.target.checked
+                        )
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-        </label>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
                     <h3 className="font-medium">Sales Reports</h3>
-                    <p className="text-sm text-gray-500">Receive daily/weekly sales reports</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+                    <p className="text-sm text-gray-500">
+                      Receive daily/weekly sales reports
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.notifications.salesReports}
-                      onChange={(e) => handleInputChange('notifications', 'salesReports', e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "notifications",
+                          "salesReports",
+                          e.target.checked
+                        )
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-        </label>
+                  </label>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -403,74 +480,108 @@ const Settings = () => {
                   <input
                     type="number"
                     value={settings.notifications.alertThreshold}
-                    onChange={(e) => handleInputChange('notifications', 'alertThreshold', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "notifications",
+                        "alertThreshold",
+                        parseInt(e.target.value)
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     min="1"
                   />
                 </div>
-      </div>
-    </div>
-          )}
-
-          {activeTab === 'security' && (
-    <div className="space-y-6">
-              <h2 className="text-xl font-semibold mb-4">Security Settings</h2>
-              <div className="space-y-4">
-      <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Password
-                  </label>
-        <input
-          type="password"
-                    value={settings.security.currentPassword}
-                    onChange={(e) => handleInputChange('security', 'currentPassword', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-      <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    New Password
-                  </label>
-        <input
-          type="password"
-                    value={settings.security.newPassword}
-                    onChange={(e) => handleInputChange('security', 'newPassword', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-      <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm New Password
-                  </label>
-        <input
-          type="password"
-                    value={settings.security.confirmPassword}
-                    onChange={(e) => handleInputChange('security', 'confirmPassword', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-                    <h3 className="font-medium">Two-Factor Authentication</h3>
-          <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.security.twoFactorAuth}
-                      onChange={(e) => handleInputChange('security', 'twoFactorAuth', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-        </label>
-      </div>
-    </div>
+              </div>
             </div>
           )}
 
-          {activeTab === 'appearance' && (
-    <div className="space-y-6">
-              <h2 className="text-xl font-semibold mb-4">Appearance Settings</h2>
+          {activeTab === "security" && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold mb-4">Security Settings</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.security.currentPassword}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "security",
+                        "currentPassword",
+                        e.target.value
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.security.newPassword}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "security",
+                        "newPassword",
+                        e.target.value
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.security.confirmPassword}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "security",
+                        "confirmPassword",
+                        e.target.value
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Two-Factor Authentication</h3>
+                    <p className="text-sm text-gray-500">
+                      Add an extra layer of security to your account
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.security.twoFactorAuth}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "security",
+                          "twoFactorAuth",
+                          e.target.checked
+                        )
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "appearance" && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold mb-4">
+                Appearance Settings
+              </h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -478,7 +589,9 @@ const Settings = () => {
                   </label>
                   <select
                     value={settings.appearance.theme}
-                    onChange={(e) => handleInputChange('appearance', 'theme', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("appearance", "theme", e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="light">Light</option>
@@ -494,24 +607,42 @@ const Settings = () => {
                     <input
                       type="color"
                       value={settings.appearance.primaryColor}
-                      onChange={(e) => handleInputChange('appearance', 'primaryColor', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "appearance",
+                          "primaryColor",
+                          e.target.value
+                        )
+                      }
                       className="w-12 h-12 rounded cursor-pointer"
                     />
                     <input
                       type="text"
                       value={settings.appearance.primaryColor}
-                      onChange={(e) => handleInputChange('appearance', 'primaryColor', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "appearance",
+                          "primaryColor",
+                          e.target.value
+                        )
+                      }
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
-      </div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Font Size
                   </label>
                   <select
                     value={settings.appearance.fontSize}
-                    onChange={(e) => handleInputChange('appearance', 'fontSize', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "appearance",
+                        "fontSize",
+                        e.target.value
+                      )
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="small">Small</option>
@@ -522,13 +653,21 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-medium">Compact Mode</h3>
-                    <p className="text-sm text-gray-500">Reduce spacing and padding for a more compact layout</p>
+                    <p className="text-sm text-gray-500">
+                      Reduce spacing and padding for a more compact layout
+                    </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={settings.appearance.compactMode}
-                      onChange={(e) => handleInputChange('appearance', 'compactMode', e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "appearance",
+                          "compactMode",
+                          e.target.checked
+                        )
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -537,10 +676,10 @@ const Settings = () => {
               </div>
             </div>
           )}
-      </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default Settings; 
+export default Settings;

@@ -1,48 +1,37 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import MainLayout from "../../components/MainLayout";
-import { getUserProfile, updateProfile } from "../../services/index/users";
+import {
+  getUserProfile,
+  updateProfile,
+  updateProfilePicture,
+} from "../../services/index/users";
 import ProfilePicture from "../../components/ProfilePicture";
-import { userActions } from "../../store/reducers/userReducers";
 import { toast } from "react-hot-toast";
 import Identicon from "../../components/Identicon";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const queryClient = useQueryClient();
-  const userState = useSelector((state) => state.user);
+  const fileInputRef = useRef();
 
-  // Extract the token from userState.userInfo
-  const token = userState.userInfo ? userState.userInfo : "";
-  const identiconSize = 100;
   const {
     data: profileData,
     isLoading: profileIsLoading,
     error: profileError,
   } = useQuery({
-    queryFn: () => {
-      // Pass the token as a string
-      return getUserProfile({ token });
-    },
+    queryFn: getUserProfile,
     queryKey: ["profile"],
   });
 
   const { mutate, isLoading: updateProfileIsLoading } = useMutation({
     mutationFn: ({ name, email, password }) => {
-      // Pass the token as a string
-      return updateProfile({
-        token,
-        userData: { name, email, password },
-      });
+      return updateProfile({ name, email, password });
     },
-    onSuccess: (data) => {
-      dispatch(userActions.setUserInfo(data));
-      localStorage.setItem("account", JSON.stringify(data));
+    onSuccess: (user) => {
       queryClient.invalidateQueries(["profile"]);
       toast.success("Profile is updated");
     },
@@ -52,43 +41,91 @@ const ProfilePage = () => {
     },
   });
 
+  const { mutate: uploadAvatar, isLoading: uploadingAvatar } = useMutation({
+    mutationFn: ({ file }) => updateProfilePicture({ file }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["profile"]);
+      toast.success("Profile picture updated");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   useEffect(() => {
-    if (!userState.userInfo) {
-      navigate("/");
+    if (!profileData) {
+      // If not logged in, redirect to login
+      navigate("/login");
     }
-  }, [navigate, userState.userInfo]);
+  }, [navigate, profileData]);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isValid },
+    setValue,
   } = useForm({
     defaultValues: {
       name: "",
       email: "",
       password: "",
     },
-    values: {
-      name: profileIsLoading ? "" : profileData?.name,
-      email: profileIsLoading ? "" : profileData?.email,
-    },
     mode: "onChange",
   });
+
+  useEffect(() => {
+    if (profileData) {
+      setValue("name", profileData.user_metadata?.name || "");
+      setValue("email", profileData.email || "");
+    }
+  }, [profileData, setValue]);
 
   const submitHandler = (data) => {
     const { name, email, password } = data;
     mutate({ name, email, password });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      uploadAvatar({ file });
+    }
+  };
+
   return (
     <MainLayout>
       <section className="container mx-auto px-5 py-10">
         <div className="w-full max-w-sm mx-auto">
-          {profileData ? (
-            <ProfilePicture avatar={profileData?.photo} />
-          ) : (
-            <Identicon value={userState.userInfo?.name} size={identiconSize} />
-          )}
+          <div className="flex flex-col items-center mb-4">
+            {profileData?.user_metadata?.avatar_url ? (
+              <img
+                src={profileData.user_metadata.avatar_url}
+                alt="Profile"
+                className="w-24 h-24 rounded-full object-cover mb-2"
+              />
+            ) : profileData ? (
+              <ProfilePicture avatar={profileData?.photo} />
+            ) : (
+              <Identicon value={profileData?.user_metadata?.name} size={100} />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={() =>
+                fileInputRef.current && fileInputRef.current.click()
+              }
+              disabled={uploadingAvatar}
+            >
+              {uploadingAvatar ? "Uploading..." : "Change Profile Picture"}
+            </button>
+          </div>
           <form onSubmit={handleSubmit(submitHandler)}>
             <div className="flex flex-col mb-6 w-full">
               <label

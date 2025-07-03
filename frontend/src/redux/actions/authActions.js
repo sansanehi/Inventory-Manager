@@ -6,87 +6,102 @@ import {
   registerSuccess,
   registerFailure,
   logout as logoutAction,
-} from '../slices/authSlice';
-import { toast } from 'react-hot-toast';
+} from "../slices/authSlice";
+import { toast } from "react-hot-toast";
+import { supabase } from "../../config/supabase";
 
-// Mock login action
 export const login = (credentials) => async (dispatch) => {
   try {
     dispatch(loginStart());
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock successful login
-    const mockUser = {
-      uid: '123',
-      email: credentials.email,
-      displayName: 'Test User',
-      photoURL: 'https://via.placeholder.com/150'
-    };
-    
-    dispatch(loginSuccess(mockUser));
-    toast.success('Login successful');
+    const { email, password } = credentials;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    const user = data.user;
+    dispatch(loginSuccess(user));
+    toast.success("Login successful");
   } catch (error) {
     dispatch(loginFailure(error.message));
-    toast.error(error.message || 'Login failed');
+    toast.error(error.message || "Login failed");
     throw error;
   }
 };
 
-// Mock Google login action
 export const loginWithGoogle = () => async (dispatch) => {
   try {
     dispatch(loginStart());
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock successful Google login
-    const mockUser = {
-      uid: '456',
-      email: 'test@gmail.com',
-      displayName: 'Google Test User',
-      photoURL: 'https://via.placeholder.com/150'
-    };
-    
-    dispatch(loginSuccess(mockUser));
-    toast.success('Google login successful');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+    });
+    if (error) throw error;
+    // The user will be redirected to Google, so no need to dispatch success here
+    toast.success("Redirecting to Google login...");
   } catch (error) {
     dispatch(loginFailure(error.message));
-    toast.error(error.message || 'Google login failed');
+    toast.error(error.message || "Google login failed");
     throw error;
   }
 };
 
-// Mock register action
 export const register = (userData) => async (dispatch) => {
   try {
     dispatch(registerStart());
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // Mock successful registration
-    const mockUser = {
-      uid: '789',
-      email: userData.email,
-      displayName: userData.name,
-      photoURL: 'https://via.placeholder.com/150'
-    };
-    dispatch(registerSuccess(mockUser));
-    toast.success('Registration successful');
+    const { email, password, name } = userData;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name },
+      },
+    });
+    // Handle Supabase duplicate email logic
+    if (
+      data &&
+      data.user &&
+      Array.isArray(data.user.identities) &&
+      data.user.identities.length === 0
+    ) {
+      dispatch(registerFailure("Email is already registered. Please log in."));
+      toast.error("Email is already registered. Please log in.");
+      return;
+    }
+    if (error) {
+      // Supabase duplicate email error message
+      if (
+        error.message &&
+        (error.message.toLowerCase().includes("user already registered") ||
+          error.message.toLowerCase().includes("already registered") ||
+          error.message.toLowerCase().includes("email"))
+      ) {
+        dispatch(registerFailure("Email is already registered"));
+        toast.error("Email is already registered");
+        return;
+      }
+      dispatch(registerFailure(error.message));
+      toast.error(error.message || "Registration failed");
+      return;
+    }
+    const user = data.user;
+    dispatch(registerSuccess(user));
+    toast.success(
+      "Registration successful. Please check your email to verify your account."
+    );
   } catch (error) {
     dispatch(registerFailure(error.message));
-    toast.error(error.message || 'Registration failed');
+    toast.error(error.message || "Registration failed");
     throw error;
   }
 };
 
 export const logout = () => async (dispatch) => {
   try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await supabase.auth.signOut();
     dispatch(logoutAction());
-    toast.success('Logged out successfully');
+    toast.success("Logged out successfully");
   } catch (error) {
-    toast.error('Logout failed');
+    toast.error("Logout failed");
     throw error;
   }
-}; 
+};

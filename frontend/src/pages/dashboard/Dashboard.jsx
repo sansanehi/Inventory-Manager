@@ -1,5 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FaBox, FaShoppingCart, FaUsers, FaDollarSign, FaArrowUp, FaArrowDown, FaChartLine, FaPlus, FaUserPlus, FaChartBar } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  FaBox,
+  FaShoppingCart,
+  FaUsers,
+  FaDollarSign,
+  FaArrowUp,
+  FaArrowDown,
+  FaChartLine,
+  FaPlus,
+  FaUserPlus,
+  FaChartBar,
+} from "react-icons/fa";
 import {
   LineChart,
   Line,
@@ -8,13 +19,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
-import { productsStore, transactionsStore } from '../../store/localStore';
-import { toast } from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+} from "recharts";
+import { productsStore, transactionsStore } from "../../store/localStore";
+import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
-  const [timeRange, setTimeRange] = useState('week');
+  const [timeRange, setTimeRange] = useState("week");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -34,21 +45,21 @@ const Dashboard = () => {
 
       // Calculate statistics
       const totalProducts = products.length;
-      const lowStock = products.filter(p => p.quantity < 10).length;
-      
+      const lowStock = products.filter((p) => p.quantity < 10).length;
+
       // Fetch transactions
       const transactions = transactionsStore.getAll();
 
       // Calculate stock in/out
-      const stockIn = transactions.filter(t => t.type === 'in').length;
-      const stockOut = transactions.filter(t => t.type === 'out').length;
+      const stockIn = transactions.filter((t) => t.type === "in").length;
+      const stockOut = transactions.filter((t) => t.type === "out").length;
 
       // Update stats
       setStats({
         totalProducts,
         lowStock,
         stockIn,
-        stockOut
+        stockOut,
       });
 
       // Process chart data
@@ -58,10 +69,9 @@ const Dashboard = () => {
       // Process recent activity
       const activity = processRecentActivity(transactions);
       setRecentActivity(activity);
-
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to fetch dashboard data');
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Failed to fetch dashboard data");
     } finally {
       setLoading(false);
     }
@@ -75,14 +85,14 @@ const Dashboard = () => {
     if (!transactions || transactions.length === 0) {
       return [];
     }
-    
+
     // Group transactions by date and type
     const groupedData = transactions.reduce((acc, transaction) => {
       const date = new Date(transaction.timestamp).toLocaleDateString();
       if (!acc[date]) {
         acc[date] = { date, stockIn: 0, stockOut: 0 };
       }
-      if (transaction.type === 'in') {
+      if (transaction.type === "in") {
         acc[date].stockIn += transaction.quantity;
       } else {
         acc[date].stockOut += transaction.quantity;
@@ -100,32 +110,34 @@ const Dashboard = () => {
     if (!transactions || transactions.length === 0) {
       return [];
     }
-    
+
     return transactions
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, 5)
-      .map(transaction => ({
+      .map((transaction) => ({
         id: transaction.id,
         type: transaction.type,
-        description: `${transaction.type === 'in' ? 'Stock in' : 'Stock out'} of ${transaction.quantity} units for ${transaction.productName}`,
-        time: new Date(transaction.timestamp).toLocaleString()
+        description: `${
+          transaction.type === "in" ? "Stock in" : "Stock out"
+        } of ${transaction.quantity} units for ${transaction.productName}`,
+        time: new Date(transaction.timestamp).toLocaleString(),
       }));
   };
 
   const handleAddProduct = () => {
-    navigate('/products');
+    navigate("/products");
   };
 
   const handleCreateOrder = () => {
-    navigate('/orders/new');
+    navigate("/orders/new");
   };
 
   const handleAddCustomer = () => {
-    navigate('/customers');
+    navigate("/customers");
   };
 
   const handleGenerateReport = () => {
-    navigate('/reports');
+    navigate("/reports");
   };
 
   if (loading) {
@@ -142,16 +154,15 @@ const Dashboard = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Time Range Selector */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
         <div className="flex space-x-2">
-          {['day', 'week', 'month', 'year'].map((range) => (
+          {["day", "week", "month", "year"].map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 timeRange === range
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               {range.charAt(0).toUpperCase() + range.slice(1)}
@@ -248,7 +259,9 @@ const Dashboard = () => {
           {recentActivity.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No recent activity</p>
-              <p className="text-sm text-gray-400 mt-2">Start by adding products or creating transactions</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Start by adding products or creating transactions
+              </p>
             </div>
           ) : (
             recentActivity.map((activity) => (
@@ -257,9 +270,11 @@ const Dashboard = () => {
                 className="flex items-center justify-between border-b pb-4 last:border-b-0"
               >
                 <div className="flex items-center space-x-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.type === 'in' ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      activity.type === "in" ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  ></div>
                   <p className="text-gray-700">{activity.description}</p>
                 </div>
                 <span className="text-sm text-gray-500">{activity.time}</span>
@@ -279,7 +294,8 @@ const Dashboard = () => {
               <FaPlus className="text-primary text-xl" />
             </div>
             <p className="text-gray-600 mb-4">
-              Add new products to your inventory with details like brand, model, and pricing.
+              Add new products to your inventory with details like brand, model,
+              and pricing.
             </p>
             <button
               onClick={handleAddProduct}
@@ -295,7 +311,8 @@ const Dashboard = () => {
               <FaShoppingCart className="text-primary text-xl" />
             </div>
             <p className="text-gray-600 mb-4">
-              Create new orders for your customers and manage your sales process.
+              Create new orders for your customers and manage your sales
+              process.
             </p>
             <button
               onClick={handleCreateOrder}
@@ -327,7 +344,8 @@ const Dashboard = () => {
               <FaChartBar className="text-primary text-xl" />
             </div>
             <p className="text-gray-600 mb-4">
-              Generate detailed reports about your inventory, sales, and customer data.
+              Generate detailed reports about your inventory, sales, and
+              customer data.
             </p>
             <button
               onClick={handleGenerateReport}
@@ -342,4 +360,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

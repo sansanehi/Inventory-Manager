@@ -2,8 +2,7 @@ const joi = require("joi");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const User = require("../models/User");
-const Token = require("../models/Token");
+const supabase = require("../database/supabaseClient");
 const sendEmail = require("../utils/sendEmail");
 
 const generateToken = (id) => {
@@ -28,20 +27,32 @@ const register = async (req, res) => {
     if (error) return res.status(400).json(error.details[0].message);
 
     const { email, name, password } = req.body;
-    const users = await User.findOne({ email });
+    const { data: users, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+    if (userError && userError.code !== "PGRST116")
+      return res.status(500).json(userError.message);
     if (users)
       return res.status(400).json("user with this email already exists.");
 
-    const new_user = new User({
-      name,
-      email,
-      password,
-    });
-    const user = await new_user.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const { data: user, error: insertError } = await supabase
+      .from("users")
+      .insert([
+        {
+          name,
+          email,
+          password: hashedPassword,
+        },
+      ])
+      .single();
+    if (insertError) return res.status(500).json(insertError.message);
     if (user) {
       const token = jwt.sign(
         {
-          _id: user._id,
+          _id: user.id,
           name: user.name,
           email: user.email,
           bio: user.bio,
@@ -51,8 +62,6 @@ const register = async (req, res) => {
         process.env.SECRET_KEY,
         { expiresIn: "1 day" }
       );
-
-      // const token = generateToken(user._id)
       res.cookie("token", token, {
         path: "/",
         httpOnly: true,
@@ -80,28 +89,26 @@ const login = async (req, res) => {
     if (error) return res.status(400).json(error.details[0].message);
 
     const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+    if (userError && userError.code !== "PGRST116")
+      return res.status(500).json(userError.message);
     if (!user) return res.status(400).json("wrong email password combination");
-
     const verifyPassword = await bcrypt.compare(password, user.password);
-
     if (!verifyPassword)
       return res.status(400).json("wrong email password combination");
-
     if (user) {
       const token = jwt.sign(
         {
-          _id: user._id,
+          _id: user.id,
           email: user.email,
         },
         process.env.SECRET_KEY,
         { expiresIn: "1 day" }
       );
-
-      // const token = generateToken(user._id)
-
       res.cookie("token", token, {
         path: "/",
         httpOnly: true,
@@ -131,14 +138,18 @@ const logout = async (req, res) => {
 
 const user = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", req.user._id)
+      .single();
+    if (userError && userError.code !== "PGRST116")
+      return res.status(500).json(userError.message);
     if (!user) return res.status(404).json(`user was not found`);
-
     if (user) {
-      const { _id, name, email, photo, phone, bio } = user;
-
+      const { id, name, email, photo, phone, bio } = user;
       return res.status(200).json({
-        _id,
+        _id: id,
         name,
         email,
         photo,
@@ -154,11 +165,9 @@ const user = async (req, res) => {
 const loggedIn = async (req, res) => {
   try {
     const token = req.cookies.token;
-
     if (!token) {
       return res.json(false);
     }
-
     const verified = jwt.verify(token, process.env.SECRET_KEY);
     if (verified) {
       return res.json(true);
@@ -175,37 +184,45 @@ const updateProfile = async (req, res) => {
       email: joi.string().required().email(),
       password: joi.string().min(6).required(),
     });
-
     const { error } = schema.validate(req.body);
     if (error) res.status(400).json(error.details[0].message);
-
-    const user = await User.findById(req.user._id);
-
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", req.user._id)
+      .single();
+    if (userError && userError.code !== "PGRST116")
+      return res.status(500).json(userError.message);
     if (user) {
       const { name, email, bio, photo, phone } = user;
-      (user.email = email), (user.name = req.body.name || name);
-      user.photo = req.body.photo || photo;
-      user.phone = req.body.phone || phone;
-      user.bio = req.body.bio || bio;
-
-      const update_user = await user.save();
-
+      const updatedFields = {
+        name: req.body.name || name,
+        email: req.body.email || email,
+        photo: req.body.photo || photo,
+        phone: req.body.phone || phone,
+        bio: req.body.bio || bio,
+      };
+      const { data: update_user, error: updateError } = await supabase
+        .from("users")
+        .update(updatedFields)
+        .eq("id", req.user._id)
+        .single();
+      if (updateError) return res.status(500).json(updateError.message);
       const updated = jwt.sign(
         {
-          _id: update_user._id,
+          _id: update_user.id,
           name: update_user.name,
           email: update_user.email,
           photo: update_user.photo,
           phone: update_user.phone,
           bio: update_user.bio,
         },
-        process.env.SECRET_KEY
+        process.env.SECRET_KEY,
+        { expiresIn: "1 day" }
       );
-
-      return res.json(updated);
+      return res.status(200).json(updated);
     } else {
-      res.status(404);
-      throw new Error("user was not found.");
+      return res.status(404).json("user was not found");
     }
   } catch (error) {
     return res.status(500).json(error.message);

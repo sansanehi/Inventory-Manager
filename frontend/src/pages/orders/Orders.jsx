@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaTimes, FaFileUpload } from 'react-icons/fa';
-import { toast } from 'react-hot-toast';
-import { ordersStore, productsStore, customersStore } from '../../store/localStore';
+import React, { useState, useEffect } from "react";
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSearch,
+  FaTimes,
+  FaFileUpload,
+} from "react-icons/fa";
+import { toast } from "react-hot-toast";
+import {
+  ordersStore,
+  productsStore,
+  customersStore,
+} from "../../store/localStore";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [editingOrder, setEditingOrder] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -13,11 +24,11 @@ const Orders = () => {
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [newOrder, setNewOrder] = useState({
-    customerId: '',
-    items: [{ productId: '', quantity: 1 }],
-    status: 'pending',
+    customerId: "",
+    items: [{ productId: "", quantity: 1 }],
+    status: "pending",
     totalAmount: 0,
-    notes: ''
+    notes: "",
   });
 
   useEffect(() => {
@@ -31,8 +42,8 @@ const Orders = () => {
       const ordersList = ordersStore.getAll();
       setOrders(ordersList);
     } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to fetch orders');
+      console.error("Error fetching orders:", error);
+      toast.error("Failed to fetch orders");
     } finally {
       setLoading(false);
     }
@@ -43,8 +54,8 @@ const Orders = () => {
       const productsList = productsStore.getAll();
       setProducts(productsList);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to fetch products');
+      console.error("Error fetching products:", error);
+      toast.error("Failed to fetch products");
     }
   };
 
@@ -53,45 +64,45 @@ const Orders = () => {
       const customersList = customersStore.getAll();
       setCustomers(customersList);
     } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast.error('Failed to fetch customers');
+      console.error("Error fetching customers:", error);
+      toast.error("Failed to fetch customers");
     }
   };
 
   const handleAddOrder = (e) => {
     e.preventDefault();
     if (!newOrder.customerId || newOrder.items.length === 0) {
-      toast.error('Customer and at least one item are required');
+      toast.error("Customer and at least one item are required");
       return;
     }
 
     try {
       // Calculate total amount
       const totalAmount = newOrder.items.reduce((total, item) => {
-        const product = products.find(p => p.id === item.productId);
+        const product = products.find((p) => p.id === item.productId);
         return total + (product ? product.sellingPrice * item.quantity : 0);
       }, 0);
 
       const orderToAdd = {
         ...newOrder,
         totalAmount,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
 
       ordersStore.add(orderToAdd);
-      toast.success('Order added successfully');
+      toast.success("Order added successfully");
       setNewOrder({
-        customerId: '',
-        items: [{ productId: '', quantity: 1 }],
-        status: 'pending',
+        customerId: "",
+        items: [{ productId: "", quantity: 1 }],
+        status: "pending",
         totalAmount: 0,
-        notes: ''
+        notes: "",
       });
       setShowAddModal(false);
       fetchOrders();
     } catch (error) {
-      console.error('Error adding order:', error);
-      toast.error('Failed to add order');
+      console.error("Error adding order:", error);
+      toast.error("Failed to add order");
     }
   };
 
@@ -102,88 +113,90 @@ const Orders = () => {
   const handleUpdateOrder = (e) => {
     e.preventDefault();
     if (!editingOrder.customerId || editingOrder.items.length === 0) {
-      toast.error('Customer and at least one item are required');
+      toast.error("Customer and at least one item are required");
       return;
     }
 
     try {
       // Calculate total amount
       const totalAmount = editingOrder.items.reduce((total, item) => {
-        const product = products.find(p => p.id === item.productId);
+        const product = products.find((p) => p.id === item.productId);
         return total + (product ? product.sellingPrice * item.quantity : 0);
       }, 0);
 
       const orderToUpdate = {
         ...editingOrder,
         totalAmount,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
       ordersStore.update(editingOrder.id, orderToUpdate);
-      toast.success('Order updated successfully');
+      toast.success("Order updated successfully");
       setEditingOrder(null);
       fetchOrders();
     } catch (error) {
-      console.error('Error updating order:', error);
-      toast.error('Failed to update order');
+      console.error("Error updating order:", error);
+      toast.error("Failed to update order");
     }
   };
 
   const handleDeleteOrder = (orderId) => {
-    if (window.confirm('Are you sure you want to delete this order?')) {
+    if (window.confirm("Are you sure you want to delete this order?")) {
       try {
         ordersStore.delete(orderId);
-        toast.success('Order deleted successfully');
+        toast.success("Order deleted successfully");
         fetchOrders();
       } catch (error) {
-        console.error('Error deleting order:', error);
-        toast.error('Failed to delete order');
+        console.error("Error deleting order:", error);
+        toast.error("Failed to delete order");
       }
     }
   };
 
   const handleAddItem = () => {
-    setNewOrder(prev => ({
+    setNewOrder((prev) => ({
       ...prev,
-      items: [...prev.items, { productId: '', quantity: 1 }]
+      items: [...prev.items, { productId: "", quantity: 1 }],
     }));
   };
 
   const handleRemoveItem = (index) => {
-    setNewOrder(prev => ({
+    setNewOrder((prev) => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
+      items: prev.items.filter((_, i) => i !== index),
     }));
   };
 
   const handleItemChange = (index, field, value) => {
-    setNewOrder(prev => ({
+    setNewOrder((prev) => ({
       ...prev,
-      items: prev.items.map((item, i) => 
+      items: prev.items.map((item, i) =>
         i === index ? { ...item, [field]: value } : item
-      )
+      ),
     }));
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
+    if (file && file.type === "application/pdf") {
       // Here you would typically handle the PDF upload
       // For now, we'll just show a success message
-      toast.success('PDF uploaded successfully');
+      toast.success("PDF uploaded successfully");
       setShowUploadModal(false);
     } else {
-      toast.error('Please upload a valid PDF file');
+      toast.error("Please upload a valid PDF file");
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const customer = customers.find(c => c.id === order.customerId);
-    return customer && customer.name.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredOrders = orders.filter((order) => {
+    const customer = customers.find((c) => c.id === order.customerId);
+    return (
+      customer && customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   });
 
   if (loading) {
-  return (
+    return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -196,7 +209,6 @@ const Orders = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Orders</h1>
           <div className="flex space-x-4">
             <button
               onClick={() => setShowUploadModal(true)}
@@ -213,31 +225,29 @@ const Orders = () => {
               Add Order
             </button>
           </div>
-      </div>
+        </div>
 
-      {/* Search Bar */}
+        {/* Search Bar */}
         <div className="mb-6">
-      <div className="relative">
-        <input
-          type="text"
+          <div className="relative">
+            <input
+              type="text"
               placeholder="Search orders by customer..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <FaSearch className="absolute left-3 top-3 text-gray-400" />
+            />
+            <FaSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
-      </div>
+        </div>
 
         {/* Orders List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {filteredOrders.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No orders found
-            </div>
+            <div className="p-6 text-center text-gray-500">No orders found</div>
           ) : (
             <div className="divide-y divide-gray-200">
-            {filteredOrders.map((order) => (
+              {filteredOrders.map((order) => (
                 <div key={order.id} className="p-6">
                   {editingOrder?.id === order.id ? (
                     <form onSubmit={handleUpdateOrder} className="space-y-4">
@@ -248,7 +258,12 @@ const Orders = () => {
                           </label>
                           <select
                             value={editingOrder.customerId}
-                            onChange={(e) => setEditingOrder({ ...editingOrder, customerId: e.target.value })}
+                            onChange={(e) =>
+                              setEditingOrder({
+                                ...editingOrder,
+                                customerId: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                             required
                           >
@@ -266,7 +281,12 @@ const Orders = () => {
                           </label>
                           <select
                             value={editingOrder.status}
-                            onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value })}
+                            onChange={(e) =>
+                              setEditingOrder({
+                                ...editingOrder,
+                                status: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                             required
                           >
@@ -283,24 +303,35 @@ const Orders = () => {
                           <h3 className="text-lg font-medium">Order Items</h3>
                           <button
                             type="button"
-                            onClick={() => setEditingOrder(prev => ({
-                              ...prev,
-                              items: [...prev.items, { productId: '', quantity: 1 }]
-                            }))}
+                            onClick={() =>
+                              setEditingOrder((prev) => ({
+                                ...prev,
+                                items: [
+                                  ...prev.items,
+                                  { productId: "", quantity: 1 },
+                                ],
+                              }))
+                            }
                             className="text-primary hover:text-primary-dark"
                           >
                             <FaPlus />
                           </button>
                         </div>
                         {editingOrder.items.map((item, index) => (
-                          <div key={index} className="flex items-center space-x-4">
+                          <div
+                            key={index}
+                            className="flex items-center space-x-4"
+                          >
                             <div className="flex-1">
                               <select
                                 value={item.productId}
                                 onChange={(e) => {
                                   const newItems = [...editingOrder.items];
                                   newItems[index].productId = e.target.value;
-                                  setEditingOrder({ ...editingOrder, items: newItems });
+                                  setEditingOrder({
+                                    ...editingOrder,
+                                    items: newItems,
+                                  });
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                                 required
@@ -319,8 +350,13 @@ const Orders = () => {
                                 value={item.quantity}
                                 onChange={(e) => {
                                   const newItems = [...editingOrder.items];
-                                  newItems[index].quantity = parseInt(e.target.value);
-                                  setEditingOrder({ ...editingOrder, items: newItems });
+                                  newItems[index].quantity = parseInt(
+                                    e.target.value
+                                  );
+                                  setEditingOrder({
+                                    ...editingOrder,
+                                    items: newItems,
+                                  });
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                                 min="1"
@@ -330,8 +366,13 @@ const Orders = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                const newItems = editingOrder.items.filter((_, i) => i !== index);
-                                setEditingOrder({ ...editingOrder, items: newItems });
+                                const newItems = editingOrder.items.filter(
+                                  (_, i) => i !== index
+                                );
+                                setEditingOrder({
+                                  ...editingOrder,
+                                  items: newItems,
+                                });
                               }}
                               className="text-red-600 hover:text-red-800"
                             >
@@ -347,7 +388,12 @@ const Orders = () => {
                         </label>
                         <textarea
                           value={editingOrder.notes}
-                          onChange={(e) => setEditingOrder({ ...editingOrder, notes: e.target.value })}
+                          onChange={(e) =>
+                            setEditingOrder({
+                              ...editingOrder,
+                              notes: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           rows="3"
                         />
@@ -373,25 +419,38 @@ const Orders = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-lg font-medium">
-                          Order #{order.id} - {customers.find(c => c.id === order.customerId)?.name}
+                          Order #{order.id} -{" "}
+                          {
+                            customers.find((c) => c.id === order.customerId)
+                              ?.name
+                          }
                         </h3>
                         <p className="text-gray-600">Status: {order.status}</p>
-                        <p className="text-gray-600">Total Amount: ${order.totalAmount}</p>
+                        <p className="text-gray-600">
+                          Total Amount: ${order.totalAmount}
+                        </p>
                         <div className="mt-2">
                           <h4 className="font-medium">Items:</h4>
                           <ul className="list-disc list-inside">
                             {order.items.map((item, index) => {
-                              const product = products.find(p => p.id === item.productId);
+                              const product = products.find(
+                                (p) => p.id === item.productId
+                              );
                               return (
                                 <li key={index} className="text-gray-600">
-                                  {product ? `${product.brand} - ${product.model}` : 'Unknown Product'} x {item.quantity}
+                                  {product
+                                    ? `${product.brand} - ${product.model}`
+                                    : "Unknown Product"}{" "}
+                                  x {item.quantity}
                                 </li>
                               );
                             })}
                           </ul>
                         </div>
                         {order.notes && (
-                          <p className="text-gray-600 mt-2">Notes: {order.notes}</p>
+                          <p className="text-gray-600 mt-2">
+                            Notes: {order.notes}
+                          </p>
                         )}
                       </div>
                       <div className="flex space-x-2">
@@ -438,7 +497,9 @@ const Orders = () => {
                   </label>
                   <select
                     value={newOrder.customerId}
-                    onChange={(e) => setNewOrder({ ...newOrder, customerId: e.target.value })}
+                    onChange={(e) =>
+                      setNewOrder({ ...newOrder, customerId: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   >
@@ -456,7 +517,9 @@ const Orders = () => {
                   </label>
                   <select
                     value={newOrder.status}
-                    onChange={(e) => setNewOrder({ ...newOrder, status: e.target.value })}
+                    onChange={(e) =>
+                      setNewOrder({ ...newOrder, status: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   >
@@ -484,7 +547,9 @@ const Orders = () => {
                     <div className="flex-1">
                       <select
                         value={item.productId}
-                        onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
+                        onChange={(e) =>
+                          handleItemChange(index, "productId", e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         required
                       >
@@ -500,7 +565,13 @@ const Orders = () => {
                       <input
                         type="number"
                         value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(
+                            index,
+                            "quantity",
+                            parseInt(e.target.value)
+                          )
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         min="1"
                         required
@@ -523,7 +594,9 @@ const Orders = () => {
                 </label>
                 <textarea
                   value={newOrder.notes}
-                  onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
+                  onChange={(e) =>
+                    setNewOrder({ ...newOrder, notes: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   rows="3"
                 />
@@ -564,7 +637,8 @@ const Orders = () => {
             </div>
             <div className="space-y-4">
               <p className="text-gray-600">
-                Upload a PDF file containing multiple orders. The file should follow the standard format.
+                Upload a PDF file containing multiple orders. The file should
+                follow the standard format.
               </p>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <input
@@ -594,10 +668,10 @@ const Orders = () => {
               </div>
             </div>
           </div>
-      </div>
+        </div>
       )}
     </div>
   );
 };
 
-export default Orders; 
+export default Orders;

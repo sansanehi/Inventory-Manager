@@ -1,11 +1,15 @@
-import axios from "axios";
+import { supabase } from "../../config/supabase";
 
 export const signup = async ({ name, email, password }) => {
   try {
-    const { data } = await axios.post("/api/users/register", {
-      name,
+    const { data } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          name,
+        },
+      },
     });
     return data;
   } catch (error) {
@@ -18,7 +22,7 @@ export const signup = async ({ name, email, password }) => {
 
 export const login = async ({ email, password }) => {
   try {
-    const { data } = await axios.post("/api/users/login", {
+    const { data } = await supabase.auth.signIn({
       email,
       password,
     });
@@ -31,78 +35,51 @@ export const login = async ({ email, password }) => {
   }
 };
 
-export const getUserProfile = async ({ token }) => {
-  try {
-    const config = {
-      withCredentials: true,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      mode:"cors",
-    };
-    const { data } = await axios.get("/api/users/profile", config);
-    return data;
-  } catch (error) {
-    if (error.response && error.response.data.message)
-      throw new Error(error.response.data.message);
-    throw new Error(error.message);
-  }
+export const getUserProfile = async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw new Error(error.message);
+  return data.user;
 };
 
-export const updateProfile = async ({ token, userData }) => {
-  try {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-
-    const { data } = await axios.put(
-      "/api/users/updateProfile",
-      userData,
-      config
-    );
-    return data;
-  } catch (error) {
-    if (error.response && error.response.data.message)
-      throw new Error(error.response.data.message);
-    throw new Error(error.message);
-  }
+export const updateProfile = async ({ name, email, password }) => {
+  // Update email and password if provided
+  let userUpdate = {};
+  if (email) userUpdate.email = email;
+  if (password) userUpdate.password = password;
+  if (name) userUpdate.data = { name };
+  const { data, error } = await supabase.auth.updateUser(userUpdate);
+  if (error) throw new Error(error.message);
+  return data.user;
 };
 
-export const updateProfilePicture = async ({ token, formData }) => {
-  try {
-    const config = {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${token}`,
-      },
-    };
+export const updateProfilePicture = async ({ file }) => {
+  // 1. Upload to Supabase Storage
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) throw new Error("Not authenticated");
+  const fileExt = file.name.split(".").pop();
+  const filePath = `avatars/${user.id}.${fileExt}`;
+  const { error: uploadError } = await supabase.storage
+    .from("avatars")
+    .upload(filePath, file, { upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
 
-    const { data } = await axios.put(
-      "/api/users/updateProfilePicture",
-      formData,
-      config
-    );
-    return data;
-  } catch (error) {
-    if (error.response && error.response.data.message)
-      throw new Error(error.response.data.message);
-    throw new Error(error.message);
-  }
+  // 2. Get public URL
+  const { data: publicUrlData } = supabase.storage
+    .from("avatars")
+    .getPublicUrl(filePath);
+  const avatarUrl = publicUrlData.publicUrl;
+
+  // 3. Update user metadata
+  const { data, error } = await supabase.auth.updateUser({
+    data: { avatar_url: avatarUrl },
+  });
+  if (error) throw new Error(error.message);
+  return data.user;
 };
 
+// TODO: Implement Google sign-in with Supabase if needed
 export const googleSignIn = async () => {
-  try {
-    const { data } = await axios.post('/api/users/google-signin', {}, {
-      withCredentials: true
-    });
-    return data;
-  } catch (error) {
-    console.error('Google sign-in error:', error);
-    if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    }
-    throw new Error('Failed to sign in with Google. Please try again.');
-  }
+  throw new Error(
+    "Google sign-in with Supabase not implemented here. Use authActions."
+  );
 };

@@ -1,8 +1,34 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { FaHome, FaBox, FaList, FaShoppingCart, FaUsers, FaChartBar, FaCog, FaSignOutAlt, FaSearch, FaBell, FaBars, FaTimes, FaFileUpload } from 'react-icons/fa';
-import { logout } from '../redux/actions/authActions';
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  FaHome,
+  FaBox,
+  FaList,
+  FaShoppingCart,
+  FaUsers,
+  FaChartBar,
+  FaCog,
+  FaSignOutAlt,
+  FaSearch,
+  FaBell,
+  FaBars,
+  FaTimes,
+  FaFileUpload,
+} from "react-icons/fa";
+import { logout } from "../redux/actions/authActions";
+
+const sectionTitles = {
+  "/dashboard": "Dashboard",
+  "/products": "Products",
+  "/categories": "Categories",
+  "/orders": "Orders",
+  "/customers": "Customers",
+  "/reports": "Reports",
+  "/daily-data": "Epsi Sheet",
+  "/data-import": "Data Import",
+  "/settings": "Settings",
+};
 
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -14,53 +40,76 @@ const DashboardLayout = () => {
   const { userInfo } = useSelector((state) => state.auth);
 
   const navigation = [
-    { path: '/dashboard', icon: <FaHome />, label: 'Dashboard' },
-    { path: '/products', icon: <FaBox />, label: 'Products' },
-    { path: '/categories', icon: <FaList />, label: 'Categories' },
-    { path: '/orders', icon: <FaShoppingCart />, label: 'Orders' },
-    { path: '/customers', icon: <FaUsers />, label: 'Customers' },
-    { path: '/reports', icon: <FaChartBar />, label: 'Reports' },
-    { path: '/daily-data', icon: <FaFileUpload />, label: 'Epsi Sheet' },
-    { path: '/data-import', icon: <FaFileUpload />, label: 'Data Import' },
-    { path: '/settings', icon: <FaCog />, label: 'Settings' },
+    { path: "/dashboard", icon: <FaHome />, label: "Dashboard" },
+    { path: "/products", icon: <FaBox />, label: "Products" },
+    { path: "/categories", icon: <FaList />, label: "Categories" },
+    { path: "/orders", icon: <FaShoppingCart />, label: "Orders" },
+    { path: "/customers", icon: <FaUsers />, label: "Customers" },
+    { path: "/reports", icon: <FaChartBar />, label: "Reports" },
+    { path: "/daily-data", icon: <FaFileUpload />, label: "Epsi Sheet" },
+    { path: "/data-import", icon: <FaFileUpload />, label: "Data Import" },
+    { path: "/settings", icon: <FaCog />, label: "Settings" },
   ];
 
   const handleLogout = () => {
     dispatch(logout());
-    navigate('/login');
+    navigate("/login");
   };
 
   // Mock notifications data
   const notifications = [
-    { id: 1, message: 'New order received', time: '5 minutes ago' },
-    { id: 2, message: 'Low stock alert for Laptop', time: '1 hour ago' },
-    { id: 3, message: 'New customer registered', time: '2 hours ago' },
+    { id: 1, message: "New order received", time: "5 minutes ago" },
+    { id: 2, message: "Low stock alert for Laptop", time: "1 hour ago" },
+    { id: 3, message: "New customer registered", time: "2 hours ago" },
   ];
+
+  // Determine section title
+  let sectionTitle = "";
+  const path = "/" + location.pathname.split("/")[1];
+  if (sectionTitles[path]) {
+    sectionTitle = sectionTitles[path];
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-white shadow-sm fixed w-full z-10">
+      <header className="bg-white shadow-sm fixed w-full z-20">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Left side - Menu button and Search */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
-              >
-                {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-              </button>
-              <div className="relative">
+          <div className="flex items-center h-14 justify-between w-full">
+            {/* Left side - Menu button (only when sidebar closed) */}
+            <div className="flex items-center min-w-[60px]">
+              {!isSidebarOpen && (
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  <FaBars size={20} />
+                </button>
+              )}
+            </div>
+            {/* Section Title - aligned with end of sidebar */}
+            <div
+              className={`flex-1 flex items-center ${
+                isSidebarOpen ? "ml-64" : "ml-20"
+              } transition-all duration-300`}
+            >
+              {sectionTitle && (
+                <span className="text-xl font-bold text-blue-700">
+                  {sectionTitle}
+                </span>
+              )}
+            </div>
+            {/* Center - Search Bar */}
+            <div className="flex-1 flex justify-center">
+              <div className="relative w-full max-w-md">
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full pl-10 pr-2 py-1.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                 />
-                <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
               </div>
             </div>
-
             {/* Right side - Notifications and Profile */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
@@ -77,12 +126,21 @@ const DashboardLayout = () => {
                 {isNotificationsOpen && (
                   <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-20">
                     <div className="px-4 py-2 border-b border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        Notifications
+                      </h3>
                     </div>
                     {notifications.map((notification) => (
-                      <div key={notification.id} className="px-4 py-3 hover:bg-gray-50">
-                        <p className="text-sm text-gray-900">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                      <div
+                        key={notification.id}
+                        className="px-4 py-3 hover:bg-gray-50"
+                      >
+                        <p className="text-sm text-gray-900">
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {notification.time}
+                        </p>
                       </div>
                     ))}
                     <div className="px-4 py-2 border-t border-gray-200">
@@ -101,11 +159,13 @@ const DashboardLayout = () => {
                   className="flex items-center space-x-3 focus:outline-none"
                 >
                   <img
-                    src={userInfo?.photo || 'https://via.placeholder.com/40'}
+                    src={userInfo?.photo || "https://via.placeholder.com/40"}
                     alt="Profile"
                     className="h-8 w-8 rounded-full"
                   />
-                  <span className="text-sm font-medium text-gray-700">{userInfo?.name}</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {userInfo?.name}
+                  </span>
                 </button>
                 {isProfileOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-20">
@@ -137,11 +197,21 @@ const DashboardLayout = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white shadow-lg transition-all duration-300 ${
-          isSidebarOpen ? 'w-64' : 'w-20'
-        }`}
+        className={`fixed left-0 top-14 h-[calc(100vh-3.5rem)] bg-white shadow-lg transition-all duration-300 ${
+          isSidebarOpen ? "w-64" : "w-20"
+        } z-30`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col relative">
+          {/* Sidebar close button in top-right corner, above header */}
+          {isSidebarOpen && (
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed left-64 top-14 transform -translate-x-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none z-50 bg-white rounded-full shadow p-2"
+              style={{ marginLeft: "-20px" }}
+            >
+              <FaTimes size={20} />
+            </button>
+          )}
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1">
             {navigation.map((item) => (
@@ -150,8 +220,8 @@ const DashboardLayout = () => {
                 to={item.path}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                   location.pathname === item.path
-                    ? 'bg-primary text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? "bg-primary text-white"
+                    : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 <span className="text-xl">{item.icon}</span>
@@ -176,7 +246,7 @@ const DashboardLayout = () => {
       {/* Main Content */}
       <main
         className={`transition-all duration-300 ${
-          isSidebarOpen ? 'ml-64' : 'ml-20'
+          isSidebarOpen ? "ml-64" : "ml-20"
         } pt-16 min-h-screen`}
       >
         <div className="p-6">
@@ -187,4 +257,4 @@ const DashboardLayout = () => {
   );
 };
 
-export default DashboardLayout; 
+export default DashboardLayout;

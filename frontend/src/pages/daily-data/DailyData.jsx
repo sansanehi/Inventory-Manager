@@ -1,8 +1,60 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaTimes, FaSort, FaSortUp, FaSortDown, FaFileExport, FaFilter, FaUndo, FaRedo, FaPlusCircle, FaPalette, FaArrowsAltH, FaBold, FaItalic, FaUnderline, FaStrikethrough, FaAlignLeft, FaAlignCenter, FaAlignRight, FaTable, FaFont, FaCalculator, FaChartBar, FaSave, FaFileImport, FaCut, FaCopy, FaPaste, FaLink, FaUnlink, FaListUl, FaListOl, FaIndent, FaOutdent, FaHighlighter, FaEraser, FaBorderAll, FaBorderNone, FaBorderStyle, FaFill, FaTextHeight, FaTextWidth, FaTh, FaObjectGroup, FaChartLine, FaChartPie, FaPrint, FaCog } from 'react-icons/fa';
-import { toast } from 'react-hot-toast';
-import { ordersStore } from '../../store/localStore';
-import * as XLSX from 'xlsx';
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSearch,
+  FaTimes,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaFileExport,
+  FaFilter,
+  FaUndo,
+  FaRedo,
+  FaPlusCircle,
+  FaPalette,
+  FaArrowsAltH,
+  FaBold,
+  FaItalic,
+  FaUnderline,
+  FaStrikethrough,
+  FaAlignLeft,
+  FaAlignCenter,
+  FaAlignRight,
+  FaTable,
+  FaFont,
+  FaCalculator,
+  FaChartBar,
+  FaSave,
+  FaFileImport,
+  FaCut,
+  FaCopy,
+  FaPaste,
+  FaLink,
+  FaUnlink,
+  FaListUl,
+  FaListOl,
+  FaIndent,
+  FaOutdent,
+  FaHighlighter,
+  FaEraser,
+  FaBorderAll,
+  FaBorderNone,
+  FaBorderStyle,
+  FaFill,
+  FaTextHeight,
+  FaTextWidth,
+  FaTh,
+  FaObjectGroup,
+  FaChartLine,
+  FaChartPie,
+  FaPrint,
+  FaCog,
+} from "react-icons/fa";
+import { toast } from "react-hot-toast";
+import { ordersStore } from "../../store/localStore";
+import * as XLSX from "xlsx";
 
 const DailyData = () => {
   // Grid state
@@ -10,7 +62,7 @@ const DailyData = () => {
   const [selectedRange, setSelectedRange] = useState(null);
   const [activeCell, setActiveCell] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
-  const [editingValue, setEditingValue] = useState('');
+  const [editingValue, setEditingValue] = useState("");
   const [formulas, setFormulas] = useState({});
   const [cellStyles, setCellStyles] = useState({});
   const [mergedCells, setMergedCells] = useState({});
@@ -18,16 +70,16 @@ const DailyData = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [clipboard, setClipboard] = useState(null);
   const [showFormulaBar, setShowFormulaBar] = useState(false);
-  const [formulaInput, setFormulaInput] = useState('');
+  const [formulaInput, setFormulaInput] = useState("");
   const [showChartModal, setShowChartModal] = useState(false);
   const [chartData, setChartData] = useState(null);
   const [showQATSettings, setShowQATSettings] = useState(false);
   const [qatCommands, setQATCommands] = useState([
-    { id: 'save', icon: FaSave, label: 'Save' },
-    { id: 'undo', icon: FaUndo, label: 'Undo' },
-    { id: 'redo', icon: FaRedo, label: 'Redo' },
-    { id: 'print', icon: FaPrint, label: 'Print' },
-    { id: 'chart', icon: FaChartBar, label: 'Chart' }
+    { id: "save", icon: FaSave, label: "Save" },
+    { id: "undo", icon: FaUndo, label: "Undo" },
+    { id: "redo", icon: FaRedo, label: "Redo" },
+    { id: "print", icon: FaPrint, label: "Print" },
+    { id: "chart", icon: FaChartBar, label: "Chart" },
   ]);
 
   // Grid dimensions
@@ -42,7 +94,7 @@ const DailyData = () => {
     for (let row = 1; row <= ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const cellId = `${String.fromCharCode(65 + col)}${row}`;
-        initialGrid[cellId] = '';
+        initialGrid[cellId] = "";
       }
     }
     setGridData(initialGrid);
@@ -51,16 +103,21 @@ const DailyData = () => {
   // Formula evaluation
   const evaluateFormula = (formula, data) => {
     try {
-      if (!formula.startsWith('=')) return formula;
+      if (!formula.startsWith("=")) return formula;
 
       // Remove the = sign
       formula = formula.substring(1);
 
       // Handle basic arithmetic
-      if (formula.includes('+') || formula.includes('-') || formula.includes('*') || formula.includes('/')) {
+      if (
+        formula.includes("+") ||
+        formula.includes("-") ||
+        formula.includes("*") ||
+        formula.includes("/")
+      ) {
         // Replace cell references with their values
         const cellRefs = formula.match(/[A-Z]+\d+/g) || [];
-        cellRefs.forEach(ref => {
+        cellRefs.forEach((ref) => {
           const value = data[ref] || 0;
           formula = formula.replace(ref, value);
         });
@@ -68,25 +125,25 @@ const DailyData = () => {
       }
 
       // Handle functions
-      if (formula.toUpperCase().startsWith('SUM(')) {
+      if (formula.toUpperCase().startsWith("SUM(")) {
         const range = formula.match(/SUM\((.*?)\)/)[1];
-        const [start, end] = range.split(':');
+        const [start, end] = range.split(":");
         const values = Object.entries(data)
           .filter(([key]) => key >= start && key <= end)
           .map(([_, value]) => parseFloat(value) || 0);
         return values.reduce((a, b) => a + b, 0);
       }
 
-      if (formula.toUpperCase().startsWith('AVERAGE(')) {
+      if (formula.toUpperCase().startsWith("AVERAGE(")) {
         const range = formula.match(/AVERAGE\((.*?)\)/)[1];
-        const [start, end] = range.split(':');
+        const [start, end] = range.split(":");
         const values = Object.entries(data)
           .filter(([key]) => key >= start && key <= end)
           .map(([_, value]) => parseFloat(value) || 0);
         return values.reduce((a, b) => a + b, 0) / values.length;
       }
 
-      if (formula.toUpperCase().startsWith('IF(')) {
+      if (formula.toUpperCase().startsWith("IF(")) {
         const match = formula.match(/IF\((.*?),(.*?),(.*?)\)/);
         if (match) {
           const [_, condition, trueValue, falseValue] = match;
@@ -96,8 +153,8 @@ const DailyData = () => {
 
       return formula;
     } catch (error) {
-      console.error('Formula evaluation error:', error);
-      return '#ERROR';
+      console.error("Formula evaluation error:", error);
+      return "#ERROR";
     }
   };
 
@@ -105,12 +162,12 @@ const DailyData = () => {
   const handleCellClick = (cellId) => {
     setActiveCell(cellId);
     setShowFormulaBar(true);
-    setFormulaInput(formulas[cellId] || gridData[cellId] || '');
+    setFormulaInput(formulas[cellId] || gridData[cellId] || "");
   };
 
   const handleCellDoubleClick = (cellId) => {
     setEditingCell(cellId);
-    setEditingValue(gridData[cellId] || '');
+    setEditingValue(gridData[cellId] || "");
     setActiveCell(cellId);
     setTimeout(() => {
       inputRef.current?.focus();
@@ -127,26 +184,26 @@ const DailyData = () => {
     if (editingCell) {
       const newValue = editingValue;
       const oldValue = gridData[cellId];
-      
+
       // Add to history
       const newHistory = history.slice(0, historyIndex + 1);
       newHistory.push({
-        type: 'edit',
+        type: "edit",
         cellId,
         oldValue,
-        newValue
+        newValue,
       });
       setHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
 
       // Update grid data
-      setGridData(prev => ({
+      setGridData((prev) => ({
         ...prev,
-        [cellId]: newValue
+        [cellId]: newValue,
       }));
 
       setEditingCell(null);
-      setEditingValue('');
+      setEditingValue("");
     }
   };
 
@@ -160,7 +217,7 @@ const DailyData = () => {
 
   const handleCellMouseEnter = (cellId) => {
     if (selectedRange) {
-      setSelectedRange(prev => ({ ...prev, end: cellId }));
+      setSelectedRange((prev) => ({ ...prev, end: cellId }));
     }
   };
 
@@ -172,36 +229,55 @@ const DailyData = () => {
   const handleCopy = () => {
     if (selectedRange) {
       const { start, end } = selectedRange;
-      const [startCol, startRow] = [start.match(/[A-Z]+/)[0], parseInt(start.match(/\d+/)[0])];
-      const [endCol, endRow] = [end.match(/[A-Z]+/)[0], parseInt(end.match(/\d+/)[0])];
-      
+      const [startCol, startRow] = [
+        start.match(/[A-Z]+/)[0],
+        parseInt(start.match(/\d+/)[0]),
+      ];
+      const [endCol, endRow] = [
+        end.match(/[A-Z]+/)[0],
+        parseInt(end.match(/\d+/)[0]),
+      ];
+
       const copiedData = {};
       for (let row = startRow; row <= endRow; row++) {
-        for (let col = startCol.charCodeAt(0); col <= endCol.charCodeAt(0); col++) {
+        for (
+          let col = startCol.charCodeAt(0);
+          col <= endCol.charCodeAt(0);
+          col++
+        ) {
           const cellId = `${String.fromCharCode(col)}${row}`;
           copiedData[cellId] = gridData[cellId];
         }
       }
       setClipboard(copiedData);
-      toast.success('Copied to clipboard');
+      toast.success("Copied to clipboard");
     }
   };
 
   const handlePaste = () => {
     if (clipboard && activeCell) {
-      const [startCol, startRow] = [activeCell.match(/[A-Z]+/)[0], parseInt(activeCell.match(/\d+/)[0])];
-      
+      const [startCol, startRow] = [
+        activeCell.match(/[A-Z]+/)[0],
+        parseInt(activeCell.match(/\d+/)[0]),
+      ];
+
       const newData = { ...gridData };
       Object.entries(clipboard).forEach(([cellId, value]) => {
-        const [col, row] = [cellId.match(/[A-Z]+/)[0], parseInt(cellId.match(/\d+/)[0])];
-        const newCol = String.fromCharCode(startCol.charCodeAt(0) + (col.charCodeAt(0) - clipboard.startCol.charCodeAt(0)));
+        const [col, row] = [
+          cellId.match(/[A-Z]+/)[0],
+          parseInt(cellId.match(/\d+/)[0]),
+        ];
+        const newCol = String.fromCharCode(
+          startCol.charCodeAt(0) +
+            (col.charCodeAt(0) - clipboard.startCol.charCodeAt(0))
+        );
         const newRow = startRow + (row - clipboard.startRow);
         const newCellId = `${newCol}${newRow}`;
         newData[newCellId] = value;
       });
 
       setGridData(newData);
-      toast.success('Pasted successfully');
+      toast.success("Pasted successfully");
     }
   };
 
@@ -209,10 +285,10 @@ const DailyData = () => {
   const handleUndo = () => {
     if (historyIndex > 0) {
       const action = history[historyIndex - 1];
-      if (action.type === 'edit') {
-        setGridData(prev => ({
+      if (action.type === "edit") {
+        setGridData((prev) => ({
           ...prev,
-          [action.cellId]: action.oldValue
+          [action.cellId]: action.oldValue,
         }));
       }
       setHistoryIndex(historyIndex - 1);
@@ -222,10 +298,10 @@ const DailyData = () => {
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       const action = history[historyIndex + 1];
-      if (action.type === 'edit') {
-        setGridData(prev => ({
+      if (action.type === "edit") {
+        setGridData((prev) => ({
           ...prev,
-          [action.cellId]: action.newValue
+          [action.cellId]: action.newValue,
         }));
       }
       setHistoryIndex(historyIndex + 1);
@@ -239,23 +315,23 @@ const DailyData = () => {
       Array.from({ length: ROWS }, (_, row) =>
         Array.from({ length: COLS }, (_, col) => {
           const cellId = `${String.fromCharCode(65 + col)}${row + 1}`;
-          return gridData[cellId] || '';
+          return gridData[cellId] || "";
         })
       )
     );
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-    XLSX.writeFile(workbook, 'epsi_sheet.xlsx');
-    toast.success('File saved successfully');
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+    XLSX.writeFile(workbook, "epsi_sheet.xlsx");
+    toast.success("File saved successfully");
   };
 
   const handleLoad = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
+      const workbook = XLSX.read(data, { type: "array" });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
+
       const newGridData = { ...gridData };
       jsonData.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
@@ -263,9 +339,9 @@ const DailyData = () => {
           newGridData[cellId] = cell;
         });
       });
-      
+
       setGridData(newGridData);
-      toast.success('File loaded successfully');
+      toast.success("File loaded successfully");
     };
     reader.readAsArrayBuffer(file);
   };
@@ -274,24 +350,34 @@ const DailyData = () => {
   const handleCreateChart = () => {
     if (selectedRange) {
       const { start, end } = selectedRange;
-      const [startCol, startRow] = [start.match(/[A-Z]+/)[0], parseInt(start.match(/\d+/)[0])];
-      const [endCol, endRow] = [end.match(/[A-Z]+/)[0], parseInt(end.match(/\d+/)[0])];
-      
+      const [startCol, startRow] = [
+        start.match(/[A-Z]+/)[0],
+        parseInt(start.match(/\d+/)[0]),
+      ];
+      const [endCol, endRow] = [
+        end.match(/[A-Z]+/)[0],
+        parseInt(end.match(/\d+/)[0]),
+      ];
+
       const chartData = {
         labels: [],
-        datasets: []
+        datasets: [],
       };
 
       // Extract data for chart
       for (let row = startRow; row <= endRow; row++) {
         const rowData = [];
-        for (let col = startCol.charCodeAt(0); col <= endCol.charCodeAt(0); col++) {
+        for (
+          let col = startCol.charCodeAt(0);
+          col <= endCol.charCodeAt(0);
+          col++
+        ) {
           const cellId = `${String.fromCharCode(col)}${row}`;
           rowData.push(gridData[cellId]);
         }
         chartData.datasets.push({
           label: `Row ${row}`,
-          data: rowData
+          data: rowData,
         });
       }
 
@@ -309,26 +395,26 @@ const DailyData = () => {
             <span className="text-sm font-medium text-primary">Epsi Sheet</span>
             <div className="border-l mx-2 h-6"></div>
           </div>
-          {qatCommands.map(cmd => (
+          {qatCommands.map((cmd) => (
             <button
               key={cmd.id}
               className="p-2 hover:bg-gray-100 rounded"
               title={cmd.label}
               onClick={() => {
                 switch (cmd.id) {
-                  case 'save':
+                  case "save":
                     handleSave();
                     break;
-                  case 'undo':
+                  case "undo":
                     handleUndo();
                     break;
-                  case 'redo':
+                  case "redo":
                     handleRedo();
                     break;
-                  case 'print':
+                  case "print":
                     window.print();
                     break;
-                  case 'chart':
+                  case "chart":
                     handleCreateChart();
                     break;
                 }
@@ -355,14 +441,14 @@ const DailyData = () => {
               value={formulaInput}
               onChange={(e) => setFormulaInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setFormulas(prev => ({
+                if (e.key === "Enter") {
+                  setFormulas((prev) => ({
                     ...prev,
-                    [activeCell]: formulaInput
+                    [activeCell]: formulaInput,
                   }));
-                  setGridData(prev => ({
+                  setGridData((prev) => ({
                     ...prev,
-                    [activeCell]: evaluateFormula(formulaInput, prev)
+                    [activeCell]: evaluateFormula(formulaInput, prev),
                   }));
                 }
               }}
@@ -380,7 +466,10 @@ const DailyData = () => {
               <button className="p-2 hover:bg-gray-100 rounded" title="New">
                 <FaPlus />
               </button>
-              <label className="p-2 hover:bg-gray-100 rounded cursor-pointer" title="Open">
+              <label
+                className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                title="Open"
+              >
                 <FaFileImport />
                 <input
                   type="file"
@@ -389,20 +478,36 @@ const DailyData = () => {
                   onChange={(e) => handleLoad(e.target.files[0])}
                 />
               </label>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Save" onClick={handleSave}>
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Save"
+                onClick={handleSave}
+              >
                 <FaSave />
               </button>
             </div>
 
             {/* Clipboard Operations */}
             <div className="flex items-center space-x-2 border-r pr-2">
-              <button className="p-2 hover:bg-gray-100 rounded" title="Cut" onClick={handleCopy}>
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Cut"
+                onClick={handleCopy}
+              >
                 <FaCut />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Copy" onClick={handleCopy}>
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Copy"
+                onClick={handleCopy}
+              >
                 <FaCopy />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Paste" onClick={handlePaste}>
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Paste"
+                onClick={handlePaste}
+              >
                 <FaPaste />
               </button>
             </div>
@@ -415,11 +520,17 @@ const DailyData = () => {
               <button className="p-2 hover:bg-gray-100 rounded" title="Italic">
                 <FaItalic />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Underline">
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Underline"
+              >
                 <FaUnderline />
               </button>
               <div className="relative group">
-                <button className="p-2 hover:bg-gray-100 rounded" title="Font Color">
+                <button
+                  className="p-2 hover:bg-gray-100 rounded"
+                  title="Font Color"
+                >
                   <FaFont />
                 </button>
                 <div className="absolute hidden group-hover:block bg-white shadow-lg p-2 rounded mt-1 z-50">
@@ -430,13 +541,22 @@ const DailyData = () => {
 
             {/* Alignment */}
             <div className="flex items-center space-x-2 border-r pr-2">
-              <button className="p-2 hover:bg-gray-100 rounded" title="Align Left">
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Align Left"
+              >
                 <FaAlignLeft />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Align Center">
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Align Center"
+              >
                 <FaAlignCenter />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Align Right">
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Align Right"
+              >
                 <FaAlignRight />
               </button>
             </div>
@@ -449,7 +569,11 @@ const DailyData = () => {
               <button className="p-2 hover:bg-gray-100 rounded" title="Filter">
                 <FaFilter />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded" title="Chart" onClick={handleCreateChart}>
+              <button
+                className="p-2 hover:bg-gray-100 rounded"
+                title="Chart"
+                onClick={handleCreateChart}
+              >
                 <FaChartBar />
               </button>
             </div>
@@ -481,25 +605,34 @@ const DailyData = () => {
                     {rowIndex + 1}
                   </td>
                   {Array.from({ length: COLS }, (_, colIndex) => {
-                    const cellId = `${String.fromCharCode(65 + colIndex)}${rowIndex + 1}`;
+                    const cellId = `${String.fromCharCode(65 + colIndex)}${
+                      rowIndex + 1
+                    }`;
                     const isActive = activeCell === cellId;
-                    const isSelected = selectedRange && 
-                      cellId >= selectedRange.start && 
+                    const isSelected =
+                      selectedRange &&
+                      cellId >= selectedRange.start &&
                       cellId <= selectedRange.end;
-                    const cellValue = gridData[cellId] || '';
+                    const cellValue = gridData[cellId] || "";
                     const formula = formulas[cellId];
-                    const displayValue = formula ? evaluateFormula(formula, gridData) : cellValue;
+                    const displayValue = formula
+                      ? evaluateFormula(formula, gridData)
+                      : cellValue;
 
                     return (
                       <td
                         key={cellId}
                         className={`border border-gray-300 px-2 py-1 relative ${
-                          isActive ? 'bg-blue-100' : isSelected ? 'bg-blue-50' : ''
+                          isActive
+                            ? "bg-blue-100"
+                            : isSelected
+                            ? "bg-blue-50"
+                            : ""
                         }`}
                         style={{
                           ...cellStyles[cellId],
-                          height: '32px',
-                          minWidth: '100px'
+                          height: "32px",
+                          minWidth: "100px",
                         }}
                         onDoubleClick={() => handleCellDoubleClick(cellId)}
                         onMouseDown={(e) => handleCellMouseDown(e, cellId)}
@@ -515,7 +648,7 @@ const DailyData = () => {
                             onChange={(e) => handleCellEdit(e, cellId)}
                             onBlur={() => handleCellEditComplete(cellId)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
+                              if (e.key === "Enter") {
                                 e.preventDefault();
                                 handleCellEditComplete(cellId);
                               }
@@ -555,19 +688,25 @@ const DailyData = () => {
               <div className="flex space-x-4">
                 <button
                   className="p-2 hover:bg-gray-100 rounded"
-                  onClick={() => {/* Create bar chart */}}
+                  onClick={() => {
+                    /* Create bar chart */
+                  }}
                 >
                   <FaChartBar />
                 </button>
                 <button
                   className="p-2 hover:bg-gray-100 rounded"
-                  onClick={() => {/* Create line chart */}}
+                  onClick={() => {
+                    /* Create line chart */
+                  }}
                 >
                   <FaChartLine />
                 </button>
                 <button
                   className="p-2 hover:bg-gray-100 rounded"
-                  onClick={() => {/* Create pie chart */}}
+                  onClick={() => {
+                    /* Create pie chart */
+                  }}
                 >
                   <FaChartPie />
                 </button>
@@ -583,7 +722,9 @@ const DailyData = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Customize Quick Access Toolbar</h2>
+              <h2 className="text-xl font-semibold">
+                Customize Quick Access Toolbar
+              </h2>
               <button
                 onClick={() => setShowQATSettings(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -593,13 +734,13 @@ const DailyData = () => {
             </div>
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {qatCommands.map(cmd => (
+                {qatCommands.map((cmd) => (
                   <button
                     key={cmd.id}
                     className="p-2 hover:bg-gray-100 rounded flex items-center space-x-2"
                     onClick={() => {
-                      setQATCommands(prev =>
-                        prev.filter(c => c.id !== cmd.id)
+                      setQATCommands((prev) =>
+                        prev.filter((c) => c.id !== cmd.id)
                       );
                     }}
                   >

@@ -2,7 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const morgan = require("morgan");
 const cors = require("cors");
-const connectDB = require("./database/connect");
+// const connectDB = require("./database/connect");
 const errorHandler = require("./middleware/errorsMiddleware");
 const cookieParser = require("cookie-parser");
 const app = express();
@@ -33,7 +33,7 @@ app.use("/api/product", require("./routes/productRoutes"));
 const PORT = process.env.PORT || 9000;
 
 app.use(errorHandler);
-connectDB();
+// connectDB();
 
 app.listen(PORT, () => {
   7;

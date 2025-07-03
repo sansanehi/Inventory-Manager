@@ -1,9 +1,20 @@
-import React, { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { FaFileExcel, FaDownload, FaUpload, FaSpinner, FaTrash } from 'react-icons/fa';
-import * as XLSX from 'xlsx';
-import { toast } from 'react-hot-toast';
-import { productsStore, categoriesStore, customersStore, transactionsStore } from '../../store/localStore';
+import React, { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import {
+  FaFileExcel,
+  FaDownload,
+  FaUpload,
+  FaSpinner,
+  FaTrash,
+} from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-hot-toast";
+import {
+  productsStore,
+  categoriesStore,
+  customersStore,
+  transactionsStore,
+} from "../../store/localStore";
 
 const DataImport = () => {
   const [file, setFile] = useState(null);
@@ -20,28 +31,30 @@ const DataImport = () => {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: "array" });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
-        
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
         // Ensure all rows have at least 6 elements
-        const paddedData = jsonData.map(row => {
+        const paddedData = jsonData.map((row) => {
           const paddedRow = {
-            Brand: row.Brand || 'No Brand',
-            Category: row.Category || 'Uncategorized',
-            Model: row.Model || 'No Model',
+            Brand: row.Brand || "No Brand",
+            Category: row.Category || "Uncategorized",
+            Model: row.Model || "No Model",
             Quantity: row.Quantity || 0,
-            'Cost Price': row['Cost Price'] || 0,
-            'Selling Price': row['Selling Price'] || 0,
-            ...row // Keep any additional fields
+            "Cost Price": row["Cost Price"] || 0,
+            "Selling Price": row["Selling Price"] || 0,
+            ...row, // Keep any additional fields
           };
           return paddedRow;
         });
 
         setPreview(paddedData.slice(0, 5));
       } catch (error) {
-        console.error('Error reading file:', error);
-        setUploadError('Error reading file. Please make sure it\'s a valid Excel file.');
+        console.error("Error reading file:", error);
+        setUploadError(
+          "Error reading file. Please make sure it's a valid Excel file."
+        );
         setFile(null);
         setPreview([]);
       }
@@ -52,11 +65,13 @@ const DataImport = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'text/csv': ['.csv']
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
+      "application/vnd.ms-excel": [".xls"],
+      "text/csv": [".csv"],
     },
-    multiple: false
+    multiple: false,
   });
 
   const processData = async (data) => {
@@ -64,7 +79,7 @@ const DataImport = () => {
     try {
       // Process categories first
       const categories = new Set();
-      data.forEach(row => {
+      data.forEach((row) => {
         if (row.Category) {
           categories.add(row.Category);
         }
@@ -73,11 +88,13 @@ const DataImport = () => {
       // Create categories
       for (const categoryName of categories) {
         try {
-          const existingCategory = categoriesStore.getAll().find(c => c.name === categoryName);
+          const existingCategory = categoriesStore
+            .getAll()
+            .find((c) => c.name === categoryName);
           if (!existingCategory) {
             categoriesStore.add({
               name: categoryName,
-              description: `Category for ${categoryName} products`
+              description: `Category for ${categoryName} products`,
             });
           }
         } catch (error) {
@@ -89,27 +106,37 @@ const DataImport = () => {
       for (const row of data) {
         try {
           const productData = {
-            brand: row.Brand || 'No Brand',
-            category: row.Category || 'Uncategorized',
-            model: row.Model || 'No Model',
+            brand: row.Brand || "No Brand",
+            category: row.Category || "Uncategorized",
+            model: row.Model || "No Model",
             quantity: Number(row.Quantity) || 0,
-            costPrice: Number(row['Cost Price']) || 0,
-            sellingPrice: Number(row['Selling Price']) || 0,
-            rackLocation: row['Rack Location'] || '',
-            description: row.Description || '',
+            costPrice: Number(row["Cost Price"]) || 0,
+            sellingPrice: Number(row["Selling Price"]) || 0,
+            rackLocation: row["Rack Location"] || "",
+            description: row.Description || "",
             // Add any additional fields from the import
             ...Object.fromEntries(
-              Object.entries(row).filter(([key]) => 
-                !['Brand', 'Category', 'Model', 'Quantity', 'Cost Price', 'Selling Price', 'Rack Location', 'Description'].includes(key)
+              Object.entries(row).filter(
+                ([key]) =>
+                  ![
+                    "Brand",
+                    "Category",
+                    "Model",
+                    "Quantity",
+                    "Cost Price",
+                    "Selling Price",
+                    "Rack Location",
+                    "Description",
+                  ].includes(key)
               )
-            )
+            ),
           };
 
           // Check if product already exists
           const existingProducts = productsStore.getAll();
-          const existingProduct = existingProducts.find(p => 
-            p.brand === productData.brand && 
-            p.model === productData.model
+          const existingProduct = existingProducts.find(
+            (p) =>
+              p.brand === productData.brand && p.model === productData.model
           );
 
           if (existingProduct) {
@@ -117,7 +144,7 @@ const DataImport = () => {
             productsStore.update(existingProduct.id, {
               ...existingProduct,
               ...productData,
-              quantity: existingProduct.quantity + productData.quantity // Add to existing quantity
+              quantity: existingProduct.quantity + productData.quantity, // Add to existing quantity
             });
           } else {
             // Add new product
@@ -127,26 +154,26 @@ const DataImport = () => {
           // Create transaction record for the import
           if (productData.quantity > 0) {
             transactionsStore.add({
-              type: 'import',
-              productId: existingProduct?.id || 'new',
+              type: "import",
+              productId: existingProduct?.id || "new",
               quantity: productData.quantity,
               price: productData.costPrice,
               total: productData.quantity * productData.costPrice,
               notes: `Imported via data import - ${productData.brand} ${productData.model}`,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             });
           }
         } catch (error) {
-          console.error('Error processing row:', error);
+          console.error("Error processing row:", error);
         }
       }
 
-      toast.success('Data imported successfully');
+      toast.success("Data imported successfully");
       setFile(null);
       setPreview([]);
     } catch (error) {
-      console.error('Error processing data:', error);
-      toast.error('Error processing data. Please check the file format.');
+      console.error("Error processing data:", error);
+      toast.error("Error processing data. Please check the file format.");
     } finally {
       setLoading(false);
     }
@@ -154,7 +181,7 @@ const DataImport = () => {
 
   const handleImport = async () => {
     if (!file) {
-      toast.error('Please select a file first');
+      toast.error("Please select a file first");
       return;
     }
 
@@ -162,13 +189,15 @@ const DataImport = () => {
     reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: "array" });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
         await processData(jsonData);
       } catch (error) {
-        console.error('Error reading file:', error);
-        toast.error('Error reading file. Please make sure it\'s a valid Excel file.');
+        console.error("Error reading file:", error);
+        toast.error(
+          "Error reading file. Please make sure it's a valid Excel file."
+        );
       }
     };
     reader.readAsArrayBuffer(file);
@@ -177,38 +206,35 @@ const DataImport = () => {
   const downloadTemplate = () => {
     const template = [
       {
-        Brand: 'Example Brand',
-        Category: 'Example Category',
-        Model: 'Example Model',
+        Brand: "Example Brand",
+        Category: "Example Category",
+        Model: "Example Model",
         Quantity: 10,
-        'Cost Price': 100,
-        'Selling Price': 150,
-        'Rack Location': 'A-1',
-        Description: 'Example description'
-      }
+        "Cost Price": 100,
+        "Selling Price": 150,
+        "Rack Location": "A-1",
+        Description: "Example description",
+      },
     ];
 
     const ws = XLSX.utils.json_to_sheet(template);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    XLSX.writeFile(wb, 'inventory_import_template.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "inventory_import_template.xlsx");
   };
 
   const handleRemoveData = () => {
-    if (window.confirm('Are you sure you want to remove the uploaded data?')) {
+    if (window.confirm("Are you sure you want to remove the uploaded data?")) {
       setFile(null);
       setPreview([]);
       setUploadError(null);
-      toast.success('Uploaded data removed successfully');
+      toast.success("Uploaded data removed successfully");
     }
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Import Data</h1>
-
-        {/* Instructions */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">How to Import Data</h2>
           <ol className="list-decimal list-inside space-y-2 text-gray-600">
@@ -238,8 +264,12 @@ const DataImport = () => {
           <div
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-              ${isDragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary'}
-              ${uploadError ? 'border-red-500' : ''}`}
+              ${
+                isDragActive
+                  ? "border-primary bg-primary/5"
+                  : "border-gray-300 hover:border-primary"
+              }
+              ${uploadError ? "border-red-500" : ""}`}
           >
             <input {...getInputProps()} />
             <FaFileExcel className="mx-auto text-4xl text-gray-400 mb-4" />
@@ -255,9 +285,7 @@ const DataImport = () => {
                 </p>
               </div>
             )}
-            {uploadError && (
-              <p className="text-red-500 mt-2">{uploadError}</p>
-            )}
+            {uploadError && <p className="text-red-500 mt-2">{uploadError}</p>}
           </div>
         </div>
 
@@ -283,7 +311,10 @@ const DataImport = () => {
                   {preview.map((row, index) => (
                     <tr key={index}>
                       {Object.values(row).map((value, i) => (
-                        <td key={i} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td
+                          key={i}
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                        >
                           {value}
                         </td>
                       ))}
@@ -293,7 +324,7 @@ const DataImport = () => {
               </table>
             </div>
             <div className="mt-4 text-sm text-gray-500">
-              Showing first 5 rows of {file ? 'your data' : 'template'}
+              Showing first 5 rows of {file ? "your data" : "template"}
             </div>
           </div>
         )}
@@ -332,4 +363,4 @@ const DataImport = () => {
   );
 };
 
-export default DataImport; 
+export default DataImport;

@@ -1,13 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AiOutlineMenu, AiOutlineClose } from "react-icons/ai";
 import { MdKeyboardArrowDown } from "react-icons/md";
-import { useSelector, useDispatch } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
-import { FaUser, FaSignOutAlt, FaBox, FaList, FaChartLine } from "react-icons/fa";
-
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import {
+  FaUser,
+  FaSignOutAlt,
+  FaBox,
+  FaList,
+  FaChartLine,
+} from "react-icons/fa";
 import { images } from "../constants";
-import { logout } from "../store/actions/user";
-import { userActions } from "../store/reducers/userReducers";
+import { supabase } from "../config/supabase";
 
 const navItemsInfo = [
   { name: "Home", type: "link", href: "/" },
@@ -18,10 +21,20 @@ const navItemsInfo = [
       { title: "About us", href: "/about" },
       { title: "Contact us", href: "/contact" },
     ],
-  },   
+  },
   { name: "Pricing", type: "link", href: "/pricing" },
   { name: "Faq", type: "link", href: "/faq" },
 ];
+
+const sectionTitles = {
+  "/products": "Products",
+  "/categories": "Categories",
+  "/dashboard": "Dashboard",
+  "/orders": "Orders",
+  "/customers": "Customers",
+  "/settings": "Settings",
+  // Add more as needed
+};
 
 const NavItem = ({ item }) => {
   const [dropdown, setDropdown] = useState(false);
@@ -77,10 +90,35 @@ const NavItem = ({ item }) => {
 
 const Header = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const location = useLocation();
   const [navIsVisible, setNavIsVisible] = useState(false);
-  const { userInfo } = useSelector((state) => state.user);
   const [profileDrowpdown, setProfileDrowpdown] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Determine section title
+  let sectionTitle = "";
+  const path = location.pathname.split("/")[1];
+  if (sectionTitles["/" + path]) {
+    sectionTitle = sectionTitles["/" + path];
+  }
+
+  useEffect(() => {
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    getSession();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+      }
+    );
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const navVisibilityHandler = () => {
     setNavIsVisible((curState) => {
@@ -88,18 +126,25 @@ const Header = () => {
     });
   };
 
-  const handleLogout = () => {
-    dispatch(userActions.resetUserInfo());
-    localStorage.removeItem("account");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
     navigate("/login");
   };
 
   return (
     <section className="sticky top-0 left-0 right-0 z-50 bg-white">
       <header className="container mx-auto px-5 flex justify-between py-4 items-center">
-        <Link to="/">
-          <img className="w-16" src={images.Logo} alt="logo" />
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/">
+            <img className="w-16" src={images.Logo} alt="logo" />
+          </Link>
+          {sectionTitle && (
+            <span className="text-xl font-bold text-blue-700 hidden md:inline">
+              {sectionTitle}
+            </span>
+          )}
+        </div>
         <div className="lg:hidden z-50">
           {navIsVisible ? (
             <AiOutlineClose
@@ -123,7 +168,7 @@ const Header = () => {
               <NavItem key={item.name} item={item} />
             ))}
           </ul>
-          {userInfo ? (
+          {user ? (
             <div className="text-white items-center gap-y-5 lg:text-dark-soft flex flex-col lg:flex-row gap-x-2 font-semibold">
               <div className="relative group">
                 <div className="flex flex-col items-center">
