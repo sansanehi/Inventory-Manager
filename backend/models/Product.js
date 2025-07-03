@@ -3,29 +3,57 @@ const createSlug = require("../utils/createSlug");
 
 const productSchema = new mongoose.Schema(
   {
-    product: {
+    name: {
       type: String,
-      required: [true, "Product is required"],
-    },
-    category: {
-      type: String,
-      required: [true, "Category is required"],
-    },
-    price: {
-      type: String,
-      required: [true, "Price is required"],
-    },
-    quantity: {
-      type: Number,
-      required: [true, "Quantity is required"],
+      required: [true, "Product name is required"],
+      trim: true
     },
     description: {
       type: String,
-      required: [true, "Product details is required"],
+      required: [true, "Product description is required"]
+    },
+    price: {
+      type: Number,
+      required: [true, "Product price is required"],
+      min: [0, "Price cannot be negative"]
     },
     image: {
       type: String,
-      required: [true, "Image is required"],
+      required: [true, "Product image is required"]
+    },
+    stock: {
+      type: Number,
+      required: [true, "Product stock is required"],
+      min: [0, "Stock cannot be negative"],
+      default: 0
+    },
+    category: {
+      type: String,
+      required: [true, "Product category is required"],
+      trim: true
+    },
+    featured: {
+      type: Boolean,
+      default: false
+    },
+    specifications: {
+      type: Map,
+      of: String,
+      default: {}
+    },
+    colors: [{
+      type: String,
+      trim: true
+    }],
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0
+    },
+    reviews: {
+      type: Number,
+      default: 0
     },
     slug: {
       type: String,
@@ -36,6 +64,9 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Add text index for search functionality
+productSchema.index({ name: 'text', description: 'text', category: 'text' });
 
 productSchema.pre("save", async function (next) {
   // if(!this.isModified("slug")){

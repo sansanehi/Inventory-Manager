@@ -62,6 +62,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["active", "inactive", "suspended"],
       default: "active"
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false
+    },
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      country: String,
+      zipCode: String
     }
   },
   { 
@@ -112,6 +123,11 @@ userSchema.methods.generatePasswordResetToken = function() {
     .digest('hex');
   this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
   return resetToken;
+};
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 const User = mongoose.model("User", userSchema);

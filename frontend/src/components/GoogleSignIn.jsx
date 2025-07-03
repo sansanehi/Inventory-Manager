@@ -3,7 +3,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { FaGoogle } from 'react-icons/fa';
-import axios from 'axios';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase';
 import toast from 'react-hot-toast';
 import { userActions } from '../store/reducers/userReducers';
 
@@ -13,10 +14,30 @@ const GoogleSignIn = () => {
 
   const { mutate, isLoading } = useMutation({
     mutationFn: async () => {
-      const { data } = await axios.post('/api/users/google-signin', {}, {
-        withCredentials: true // Add this to handle cookies
+      const result = await signInWithPopup(auth, googleProvider);
+      const { user } = result;
+      
+      // Send user data to backend
+      const response = await fetch('/api/users/google-signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: user.uid,
+          email: user.email,
+          name: user.displayName,
+          picture: user.photoURL,
+        }),
+        credentials: 'include',
       });
-      return data;
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to sign in with Google');
+      }
+
+      return response.json();
     },
     onSuccess: (data) => {
       dispatch(userActions.setUserInfo(data));
@@ -26,7 +47,7 @@ const GoogleSignIn = () => {
     },
     onError: (error) => {
       console.error('Google sign-in error:', error);
-      toast.error(error?.response?.data?.message || 'Something went wrong!');
+      toast.error(error.message || 'Failed to sign in with Google');
     },
   });
 
@@ -40,7 +61,7 @@ const GoogleSignIn = () => {
       disabled={isLoading}
       className="flex items-center justify-center gap-2 w-full bg-white text-gray-700 border border-gray-300 rounded-lg px-6 py-3 font-medium hover:bg-gray-50 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
     >
-      <FaGoogle className="text-xl" />
+      <FaGoogle className="text-xl text-red-600" />
       {isLoading ? 'Signing in...' : 'Continue with Google'}
     </button>
   );

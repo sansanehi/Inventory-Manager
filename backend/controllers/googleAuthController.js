@@ -1,14 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// Mock Google user data for testing
-const mockGoogleUser = {
-  id: '123456789',
-  email: 'test@example.com',
-  name: 'Test User',
-  picture: 'https://via.placeholder.com/150',
-};
-
 // Generate JWT Token
 const generateToken = (id) => {
   if (!process.env.JWT_SECRET) {
@@ -20,15 +12,15 @@ const generateToken = (id) => {
   });
 };
 
-// Mock Google Sign In
+// Google Sign In
 const googleSignIn = async (req, res) => {
   try {
     console.log('Google sign-in attempt started');
-    const { id, email, name, picture } = mockGoogleUser;
+    const { id, email, name, picture } = req.body;
 
     // Validate required fields
-    if (!email || !name) {
-      console.error('Missing required fields:', { email, name });
+    if (!email || !name || !id) {
+      console.error('Missing required fields:', { email, name, id });
       return res.status(400).json({
         success: false,
         message: 'Missing required user information'
@@ -108,12 +100,6 @@ const googleSignIn = async (req, res) => {
               message: 'Error creating user account - duplicate email'
             });
           }
-        } else if (createError.name === 'ValidationError') {
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid user data',
-            error: createError.message
-          });
         } else {
           return res.status(500).json({
             success: false,

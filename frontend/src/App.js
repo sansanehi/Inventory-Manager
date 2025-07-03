@@ -13,6 +13,8 @@ import Customers from './pages/customers/Customers';
 import Reports from './pages/reports/Reports';
 import Settings from './pages/settings/Settings';
 import DataImport from './pages/data-import/DataImport';
+import DailyData from './pages/daily-data/DailyData';
+import OrdersComponent from './components/Orders';
 
 const App = () => {
   const { userInfo } = useSelector((state) => state.auth);
@@ -34,11 +36,12 @@ const App = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="products" element={<Products />} />
           <Route path="categories" element={<Categories />} />
-          <Route path="orders" element={<Orders />} />
+          <Route path="orders" element={<OrdersComponent />} />
           <Route path="customers" element={<Customers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="data-import" element={<DataImport />} />
+          <Route path="daily-data" element={<DailyData />} />
         </Route>
 
         {/* Catch all route */}

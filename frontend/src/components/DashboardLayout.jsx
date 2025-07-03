@@ -20,6 +20,7 @@ const DashboardLayout = () => {
     { path: '/orders', icon: <FaShoppingCart />, label: 'Orders' },
     { path: '/customers', icon: <FaUsers />, label: 'Customers' },
     { path: '/reports', icon: <FaChartBar />, label: 'Reports' },
+    { path: '/daily-data', icon: <FaFileUpload />, label: 'Epsi Sheet' },
     { path: '/data-import', icon: <FaFileUpload />, label: 'Data Import' },
     { path: '/settings', icon: <FaCog />, label: 'Settings' },
   ];

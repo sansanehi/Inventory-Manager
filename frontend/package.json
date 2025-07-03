@@ -1,6 +1,6 @@
 {
-  "name": "inventory",
-  "version": "0.1.0",
+  "name": "inventory-management-app",
+  "version": "1.0.0",
   "private": true,
   "proxy": "http://localhost:9000",
   "dependencies": {
@@ -29,19 +29,33 @@
     "react-scripts": "5.0.1",
     "recharts": "^2.15.3",
     "web-vitals": "^2.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "compression": "^1.7.4",
+    "helmet": "^7.0.0",
+    "serve": "^14.2.1"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "analyze": "source-map-explorer 'build/static/js/*.js'",
+    "lint": "eslint src/**/*.{js,jsx}",
+    "lint:fix": "eslint src/**/*.{js,jsx} --fix",
+    "format": "prettier --write src/**/*.{js,jsx,css,md}",
+    "type-check": "tsc --noEmit",
+    "precommit": "npm run lint && npm run type-check",
+    "serve": "serve -s build"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "warn"
+    }
   },
   "browserslist": {
     "production": [
@@ -57,6 +71,27 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.9",
-    "tailwindcss": "^3.2.4"
+    "tailwindcss": "^3.2.4",
+    "eslint": "^8.38.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.2.1",
+    "prettier": "^2.8.7",
+    "source-map-explorer": "^2.5.3",
+    "typescript": "^5.0.4"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

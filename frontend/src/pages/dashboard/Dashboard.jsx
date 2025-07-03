@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaBox, FaShoppingCart, FaUsers, FaDollarSign, FaArrowUp, FaArrowDown, FaChartLine } from 'react-icons/fa';
+import { FaBox, FaShoppingCart, FaUsers, FaDollarSign, FaArrowUp, FaArrowDown, FaChartLine, FaPlus, FaUserPlus, FaChartBar } from 'react-icons/fa';
 import {
   LineChart,
   Line,
@@ -9,9 +9,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { productsStore, transactionsStore } from '../../store/localStore';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const [timeRange, setTimeRange] = useState('week');
@@ -24,34 +24,20 @@ const Dashboard = () => {
   });
   const [chartData, setChartData] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
+  const navigate = useNavigate();
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(() => {
     setLoading(true);
     try {
       // Fetch products
-      const productsSnapshot = await getDocs(collection(db, 'products'));
-      const products = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const products = productsStore.getAll();
 
       // Calculate statistics
       const totalProducts = products.length;
       const lowStock = products.filter(p => p.quantity < 10).length;
       
-      // Fetch stock transactions
-      const transactionsSnapshot = await getDocs(
-        query(
-          collection(db, 'transactions'),
-          orderBy('timestamp', 'desc'),
-          limit(100)
-        )
-      );
-      
-      const transactions = transactionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Fetch transactions
+      const transactions = transactionsStore.getAll();
 
       // Calculate stock in/out
       const stockIn = transactions.filter(t => t.type === 'in').length;
@@ -86,9 +72,13 @@ const Dashboard = () => {
   }, [fetchDashboardData, timeRange]);
 
   const processChartData = (transactions) => {
+    if (!transactions || transactions.length === 0) {
+      return [];
+    }
+    
     // Group transactions by date and type
     const groupedData = transactions.reduce((acc, transaction) => {
-      const date = new Date(transaction.timestamp.toDate()).toLocaleDateString();
+      const date = new Date(transaction.timestamp).toLocaleDateString();
       if (!acc[date]) {
         acc[date] = { date, stockIn: 0, stockOut: 0 };
       }
@@ -107,12 +97,35 @@ const Dashboard = () => {
   };
 
   const processRecentActivity = (transactions) => {
-    return transactions.slice(0, 5).map(transaction => ({
-      id: transaction.id,
-      type: transaction.type,
-      description: `${transaction.type === 'in' ? 'Stock in' : 'Stock out'} of ${transaction.quantity} units for ${transaction.productName}`,
-      time: new Date(transaction.timestamp.toDate()).toLocaleString()
-    }));
+    if (!transactions || transactions.length === 0) {
+      return [];
+    }
+    
+    return transactions
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 5)
+      .map(transaction => ({
+        id: transaction.id,
+        type: transaction.type,
+        description: `${transaction.type === 'in' ? 'Stock in' : 'Stock out'} of ${transaction.quantity} units for ${transaction.productName}`,
+        time: new Date(transaction.timestamp).toLocaleString()
+      }));
+  };
+
+  const handleAddProduct = () => {
+    navigate('/products');
+  };
+
+  const handleCreateOrder = () => {
+    navigate('/orders/new');
+  };
+
+  const handleAddCustomer = () => {
+    navigate('/customers');
+  };
+
+  const handleGenerateReport = () => {
+    navigate('/reports');
   };
 
   if (loading) {
@@ -197,28 +210,34 @@ const Dashboard = () => {
           <FaChartLine className="text-primary" />
         </div>
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="stockIn"
-                stroke="#10B981"
-                strokeWidth={2}
-                name="Stock In"
-              />
-              <Line
-                type="monotone"
-                dataKey="stockOut"
-                stroke="#EF4444"
-                strokeWidth={2}
-                name="Stock Out"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-gray-500">No stock movement data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="stockIn"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  name="Stock In"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="stockOut"
+                  stroke="#EF4444"
+                  strokeWidth={2}
+                  name="Stock Out"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -227,7 +246,10 @@ const Dashboard = () => {
         <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
         <div className="space-y-4">
           {recentActivity.length === 0 ? (
-            <p className="text-gray-500 text-center">No recent activity</p>
+            <div className="text-center py-8">
+              <p className="text-gray-500">No recent activity</p>
+              <p className="text-sm text-gray-400 mt-2">Start by adding products or creating transactions</p>
+            </div>
           ) : (
             recentActivity.map((activity) => (
               <div
@@ -251,18 +273,69 @@ const Dashboard = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-            Add New Product
-          </button>
-          <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-            Create Order
-          </button>
-          <button className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
-            Add Customer
-          </button>
-          <button className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors">
-            Generate Report
-          </button>
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Add New Product</h2>
+              <FaPlus className="text-primary text-xl" />
+            </div>
+            <p className="text-gray-600 mb-4">
+              Add new products to your inventory with details like brand, model, and pricing.
+            </p>
+            <button
+              onClick={handleAddProduct}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Add Product
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Create Order</h2>
+              <FaShoppingCart className="text-primary text-xl" />
+            </div>
+            <p className="text-gray-600 mb-4">
+              Create new orders for your customers and manage your sales process.
+            </p>
+            <button
+              onClick={handleCreateOrder}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Create Order
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Add Customer</h2>
+              <FaUserPlus className="text-primary text-xl" />
+            </div>
+            <p className="text-gray-600 mb-4">
+              Add new customers to your database and manage their information.
+            </p>
+            <button
+              onClick={handleAddCustomer}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Add Customer
+            </button>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Generate Report</h2>
+              <FaChartBar className="text-primary text-xl" />
+            </div>
+            <p className="text-gray-600 mb-4">
+              Generate detailed reports about your inventory, sales, and customer data.
+            </p>
+            <button
+              onClick={handleGenerateReport}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Generate Report
+            </button>
+          </div>
         </div>
       </div>
     </div>
