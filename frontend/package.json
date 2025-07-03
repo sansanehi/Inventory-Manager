@@ -2,7 +2,6 @@
   "name": "inventory-management-app",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://localhost:9000",
   "dependencies": {
     "@reduxjs/toolkit": "^1.9.3",
     "@supabase/supabase-js": "^2.50.3",
