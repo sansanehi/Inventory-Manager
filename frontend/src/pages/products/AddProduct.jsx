@@ -17,12 +17,10 @@ const AddProduct = () => {
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
   const [product, setProduct] = useState({
-    brand: "",
+    name: "",
     category: "",
-    model: "",
     quantity: "",
-    costPrice: "",
-    sellingPrice: "",
+    price: "",
     description: "",
   });
   const [categories, setCategories] = useState([]);
@@ -77,12 +75,10 @@ const AddProduct = () => {
     try {
       // Validate required fields
       const requiredFields = [
-        "brand",
+        "name",
         "category",
-        "model",
         "quantity",
-        "costPrice",
-        "sellingPrice",
+        "price",
       ];
       const missingFields = requiredFields.filter((field) => !product[field]);
       if (missingFields.length > 0) {
@@ -93,7 +89,7 @@ const AddProduct = () => {
         return;
       }
       // Convert numeric fields
-      const numericFields = ["quantity", "costPrice", "sellingPrice"];
+      const numericFields = ["quantity", "price"];
       const processedProduct = {
         ...product,
         ...numericFields.reduce(
@@ -104,14 +100,19 @@ const AddProduct = () => {
           {}
         ),
       };
+
+      const productToSend = {
+        ...processedProduct,
+        user_id: userId,
+      };
       if (id) {
         // Update existing product
-        await updateProduct(id, processedProduct);
+        await updateProduct(id, productToSend);
         toast.success("Product updated successfully");
       } else {
         // Add new product
         if (!userId) throw new Error("User not found");
-        await addProduct(userId, processedProduct);
+        await addProduct(userId, productToSend);
         toast.success("Product added successfully");
       }
       navigate("/products");
@@ -153,12 +154,12 @@ const AddProduct = () => {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Brand <span className="text-red-500">*</span>
+                    Product Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    name="brand"
-                    value={product.brand}
+                    name="name"
+                    value={product.name}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                     required
@@ -182,19 +183,6 @@ const AddProduct = () => {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Model <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="model"
-                    value={product.model}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    required
-                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -223,29 +211,15 @@ const AddProduct = () => {
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cost Price <span className="text-red-500">*</span>
+                    Price <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="costPrice"
-                    value={product.costPrice}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Selling Price <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="sellingPrice"
-                    value={product.sellingPrice}
+                    name="price"
+                    value={product.price}
                     onChange={handleChange}
                     min="0"
                     step="0.01"
@@ -277,8 +251,8 @@ const AddProduct = () => {
                   ? "Saving..."
                   : "Adding..."
                 : id
-                ? "Save Changes"
-                : "Add Product"}
+                  ? "Save Changes"
+                  : "Add Product"}
             </button>
           </form>
         )}

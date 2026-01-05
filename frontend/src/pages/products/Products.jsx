@@ -110,11 +110,10 @@ const Products = () => {
 
   const filteredProducts = products.filter(
     (product) =>
-      (product.brand?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (product.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (product.category?.toLowerCase() || "").includes(
         searchTerm.toLowerCase()
-      ) ||
-      (product.model?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+      )
   );
 
   if (loading) {
@@ -190,12 +189,10 @@ const Products = () => {
                 <thead>
                   <tr>
                     <th className="px-4 py-2">Select</th>
-                    <th className="px-4 py-2">Brand</th>
+                    <th className="px-4 py-2">Product Name</th>
                     <th className="px-4 py-2">Category</th>
-                    <th className="px-4 py-2">Model</th>
                     <th className="px-4 py-2">Quantity</th>
-                    <th className="px-4 py-2">Cost Price</th>
-                    <th className="px-4 py-2">Selling Price</th>
+                    <th className="px-4 py-2">Price</th>
                     <th className="px-4 py-2">Rack Location</th>
                     <th className="px-4 py-2">Actions</th>
                   </tr>
@@ -212,18 +209,14 @@ const Products = () => {
                         />
                       </td>
                       <td className="px-4 py-2">
-                        {product.brand || "No Brand"}
+                        {product.name || "No Name"}
                       </td>
                       <td className="px-4 py-2">
                         {product.category || "Uncategorized"}
                       </td>
-                      <td className="px-4 py-2">
-                        {product.model || "No Model"}
-                      </td>
                       <td className="px-4 py-2">{product.quantity || 0}</td>
-                      <td className="px-4 py-2">${product.costPrice || 0}</td>
                       <td className="px-4 py-2">
-                        ${product.sellingPrice || 0}
+                        ${product.price || 0}
                       </td>
                       <td className="px-4 py-2">
                         {product.rackLocation || "Not specified"}

@@ -19,7 +19,7 @@ import Reports from "./pages/reports/Reports";
 import Settings from "./pages/settings/Settings";
 import DataImport from "./pages/data-import/DataImport";
 import DailyData from "./pages/daily-data/DailyData";
-import OrdersComponent from "./components/Orders";
+
 import AddProduct from "./pages/products/AddProduct";
 
 const App = () => {
@@ -50,7 +50,7 @@ const App = () => {
           <Route path="products/add" element={<AddProduct />} />
           <Route path="products/edit/:id" element={<AddProduct />} />
           <Route path="categories" element={<Categories />} />
-          <Route path="orders" element={<OrdersComponent />} />
+          <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />

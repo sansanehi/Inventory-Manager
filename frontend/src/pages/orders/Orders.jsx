@@ -8,14 +8,14 @@ import {
   FaFileUpload,
 } from "react-icons/fa";
 import { toast } from "react-hot-toast";
-import {
-  ordersStore,
-  productsStore,
-  customersStore,
-} from "../../store/localStore";
+import { supabase } from "../../config/supabase";
+import { fetchCustomers as fetchCustomersService } from "../../services/index/customers";
+
+import { Link } from "react-router-dom";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
+  const [dbError, setDbError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -37,62 +37,119 @@ const Orders = () => {
     fetchCustomers();
   }, []);
 
-  const fetchOrders = () => {
+  const fetchOrders = async () => {
     try {
-      const ordersList = ordersStore.getAll();
-      setOrders(ordersList);
+      setDbError(null);
+      const { data, error } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          items:order_items (
+            *,
+            product:products (name, price)
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Merge with local demo orders if any
+      const localOrders = JSON.parse(localStorage.getItem('demo_orders') || '[]');
+      setOrders([...localOrders, ...(data || [])]);
+
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to fetch orders");
+      if (error.code === 'PGRST205' || (error.message && error.message.includes('orders'))) {
+        setDbError("MISSING_TABLE");
+        // Load local orders only
+        const localOrders = JSON.parse(localStorage.getItem('demo_orders') || '[]');
+        setOrders(localOrders);
+        if (localOrders.length === 0) {
+          // Only show toast if we have absolutely nothing
+          // toast.error("Database table missing - functioning in Demo Mode"); 
+        }
+      } else {
+        toast.error("Failed to fetch orders");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchProducts = () => {
+  const fetchProducts = async () => {
     try {
-      const productsList = productsStore.getAll();
-      setProducts(productsList);
+      const { data, error } = await supabase.from("products").select("*");
+      if (error) throw error;
+      setProducts(data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast.error("Failed to fetch products");
     }
   };
 
-  const fetchCustomers = () => {
+  const fetchCustomers = async () => {
     try {
-      const customersList = customersStore.getAll();
-      setCustomers(customersList);
+      const data = await fetchCustomersService();
+      setCustomers(data || []);
     } catch (error) {
       console.error("Error fetching customers:", error);
       toast.error("Failed to fetch customers");
     }
   };
 
-  const handleAddOrder = (e) => {
+  const handleAddOrder = async (e) => {
     e.preventDefault();
-    if (!newOrder.customerId || newOrder.items.length === 0) {
-      toast.error("Customer and at least one item are required");
+    if (newOrder.items.length === 0) {
+      toast.error("At least one item is required");
       return;
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
       // Calculate total amount
       const totalAmount = newOrder.items.reduce((total, item) => {
         const product = products.find((p) => p.id === item.productId);
-        return total + (product ? product.sellingPrice * item.quantity : 0);
+        return total + (product ? product.price * item.quantity : 0);
       }, 0);
 
-      const orderToAdd = {
-        ...newOrder,
-        totalAmount,
-        createdAt: new Date().toISOString(),
-      };
+      // 1. Create Order
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert([{
+          user_id: user.id,
+          status: newOrder.status,
+          "totalAmount": totalAmount,
+          // notes: newOrder.notes // Add notes column if needed
+        }])
+        .select()
+        .single();
 
-      ordersStore.add(orderToAdd);
+      if (orderError) throw orderError;
+
+      // 2. Create Order Items
+      const orderItems = newOrder.items.map(item => {
+        const product = products.find(p => p.id === item.productId);
+        return {
+          order_id: orderData.id,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price: product ? product.price : 0
+        };
+      });
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
       toast.success("Order added successfully");
       setNewOrder({
-        customerId: "",
         items: [{ productId: "", quantity: 1 }],
         status: "pending",
         totalAmount: 0,
@@ -102,7 +159,55 @@ const Orders = () => {
       fetchOrders();
     } catch (error) {
       console.error("Error adding order:", error);
-      toast.error("Failed to add order");
+
+      // Fallback: If table is missing, save to LocalStorage (Demo Mode)
+      if (error.code === 'PGRST205' || (error.message && error.message.includes('orders'))) {
+        const newLocalOrder = {
+          id: "local-" + Date.now(),
+          created_at: new Date().toISOString(),
+          user_id: "local-user",
+          status: newOrder.status,
+          totalAmount: newOrder.items.reduce((total, item) => {
+            const product = products.find((p) => p.id === item.productId);
+            return total + (product ? product.price * item.quantity : 0);
+          }, 0),
+          customerId: newOrder.customerId
+        };
+
+        // Mimic fetching items with product details
+        const newLocalItems = newOrder.items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            id: "item-" + Date.now() + Math.random(),
+            order_id: newLocalOrder.id,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price: product ? product.price : 0,
+            product: { name: product ? product.name : "Unknown", price: product ? product.price : 0 }
+          };
+        });
+
+        // Store in LocalStorage
+        const existingOrders = JSON.parse(localStorage.getItem('demo_orders') || '[]');
+        existingOrders.unshift({ ...newLocalOrder, items: newLocalItems });
+        localStorage.setItem('demo_orders', JSON.stringify(existingOrders));
+
+        toast.success("Order saved locally (Demo Mode - Database table missing)");
+
+        // Update state to show new order immediately
+        setOrders(prev => [{ ...newLocalOrder, items: newLocalItems }, ...prev]);
+
+        setNewOrder({
+          items: [{ productId: "", quantity: 1 }],
+          status: "pending",
+          totalAmount: 0,
+          notes: "",
+        });
+        setShowAddModal(false);
+        return;
+      }
+
+      toast.error(error.message || "Failed to add order");
     }
   };
 
@@ -110,10 +215,10 @@ const Orders = () => {
     setEditingOrder(order);
   };
 
-  const handleUpdateOrder = (e) => {
+  const handleUpdateOrder = async (e) => {
     e.preventDefault();
-    if (!editingOrder.customerId || editingOrder.items.length === 0) {
-      toast.error("Customer and at least one item are required");
+    if (editingOrder.items.length === 0) {
+      toast.error("At least one item is required");
       return;
     }
 
@@ -121,16 +226,24 @@ const Orders = () => {
       // Calculate total amount
       const totalAmount = editingOrder.items.reduce((total, item) => {
         const product = products.find((p) => p.id === item.productId);
-        return total + (product ? product.sellingPrice * item.quantity : 0);
+        return total + (product ? product.price * item.quantity : 0);
       }, 0);
 
-      const orderToUpdate = {
-        ...editingOrder,
-        totalAmount,
-        updatedAt: new Date().toISOString(),
-      };
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: editingOrder.status,
+          "totalAmount": totalAmount,
+          // customer_id: editingOrder.customerId // If allowing customer change
+        })
+        .eq("id", editingOrder.id);
 
-      ordersStore.update(editingOrder.id, orderToUpdate);
+      if (error) throw error;
+
+      // Note: Updating order items is complex (delete old, insert new). 
+      // For simplicity, we assume strict updates or would need a transaction.
+      // Here we just update the order details. Handling items update requires more logic.
+
       toast.success("Order updated successfully");
       setEditingOrder(null);
       fetchOrders();
@@ -140,10 +253,16 @@ const Orders = () => {
     }
   };
 
-  const handleDeleteOrder = (orderId) => {
+  const handleDeleteOrder = async (orderId) => {
     if (window.confirm("Are you sure you want to delete this order?")) {
       try {
-        ordersStore.delete(orderId);
+        const { error } = await supabase
+          .from("orders")
+          .delete()
+          .eq("id", orderId);
+
+        if (error) throw error;
+
         toast.success("Order deleted successfully");
         fetchOrders();
       } catch (error) {
@@ -208,6 +327,14 @@ const Orders = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
+        {dbError === "MISSING_TABLE" && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+            <p className="font-bold">Database Table Missing - Running in Demo Mode</p>
+            <p>The <code>orders</code> table does not exist in Supabase. New orders will be saved <b>locally</b> to your browser until the table is created.</p>
+            <p className="mt-2">To fix this permanently, please run the SQL script in your Supabase Dashboard.</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6">
           <div className="flex space-x-4">
             <button
@@ -495,21 +622,27 @@ const Orders = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Customer *
                   </label>
-                  <select
-                    value={newOrder.customerId}
-                    onChange={(e) =>
-                      setNewOrder({ ...newOrder, customerId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  >
-                    <option value="">Select a customer</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </option>
-                    ))}
-                  </select>
+                  {customers.length === 0 ? (
+                    <div className="text-sm text-gray-500 border p-2 rounded bg-gray-50">
+                      No customers found. <Link to="/customers" className="text-primary hover:underline">Add a Customer</Link>
+                    </div>
+                  ) : (
+                    <select
+                      value={newOrder.customerId}
+                      onChange={(e) =>
+                        setNewOrder({ ...newOrder, customerId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    >
+                      <option value="">Select a customer</option>
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -545,21 +678,27 @@ const Orders = () => {
                 {newOrder.items.map((item, index) => (
                   <div key={index} className="flex items-center space-x-4">
                     <div className="flex-1">
-                      <select
-                        value={item.productId}
-                        onChange={(e) =>
-                          handleItemChange(index, "productId", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                        required
-                      >
-                        <option value="">Select a product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.brand} - {product.model}
-                          </option>
-                        ))}
-                      </select>
+                      {products.length === 0 ? (
+                        <div className="text-sm text-gray-500 border p-2 rounded bg-gray-50">
+                          No products found. <Link to="/products" className="text-primary hover:underline">Add a Product</Link>
+                        </div>
+                      ) : (
+                        <select
+                          value={item.productId}
+                          onChange={(e) =>
+                            handleItemChange(index, "productId", e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        >
+                          <option value="">Select a product</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.brand ? `${product.brand} - ` : ''}{product.name || product.model}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                     <div className="w-32">
                       <input

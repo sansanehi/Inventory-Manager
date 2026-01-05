@@ -20,7 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { productsStore, transactionsStore } from "../../store/localStore";
+import { supabase } from "../../config/supabase";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -37,22 +37,74 @@ const Dashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const navigate = useNavigate();
 
-  const fetchDashboardData = useCallback(() => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch products
-      const products = productsStore.getAll();
+      // 1. Fetch Products Stats
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("*");
 
-      // Calculate statistics
-      const totalProducts = products.length;
-      const lowStock = products.filter((p) => p.quantity < 10).length;
+      if (productsError) throw productsError;
 
-      // Fetch transactions
-      const transactions = transactionsStore.getAll();
+      const totalProducts = products?.length || 0;
+      const lowStock = products?.filter((p) => p.quantity < 10).length || 0;
 
-      // Calculate stock in/out
-      const stockIn = transactions.filter((t) => t.type === "in").length;
-      const stockOut = transactions.filter((t) => t.type === "out").length;
+      // 2. Fetch Orders (Stock Out) - Handle missing table gracefully
+      let stockOut = 0;
+      let recentOrders = [];
+      let orderItems = [];
+
+      try {
+        const { data: oItems, error: oError } = await supabase
+          .from("order_items")
+          .select("*, product:products(name)");
+
+        if (oError) {
+          console.warn("Could not fetch order_items (table might be missing)", oError);
+        } else {
+          orderItems = oItems || [];
+          stockOut = orderItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        }
+
+        const { data: rOrders, error: rError } = await supabase
+          .from("orders")
+          .select("*, items:order_items(*)")
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (rError) {
+          console.warn("Could not fetch orders (table might be missing)", rError);
+        } else {
+          recentOrders = rOrders || [];
+        }
+
+      } catch (err) {
+        console.warn("Orders/OrderItems table likely missing, skipping stats", err);
+      }
+
+      // Merge with Local Demo Orders for Dashboard
+      const localOrders = JSON.parse(localStorage.getItem('demo_orders') || '[]');
+      if (localOrders.length > 0) {
+        // Add to recent orders
+        recentOrders = [...localOrders, ...recentOrders].slice(0, 5);
+
+        // Add to order items (flatten local items)
+        const localItems = localOrders.flatMap(o => o.items || []);
+        orderItems = [...localItems, ...orderItems];
+
+        // Recalculate StockOut
+        stockOut = orderItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      }
+
+      // 3. Stock In (Using Product creation as proxy for now, or 0 if no separate table)
+      // Ideally we would have a 'transactions' table. For now, we'll set it to 0 or 
+      // count products added in last 7 days as "New Stock"
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const stockIn = products?.filter(p => new Date(p.created_at) > sevenDaysAgo).length || 0;
+
 
       // Update stats
       setStats({
@@ -62,13 +114,14 @@ const Dashboard = () => {
         stockOut,
       });
 
-      // Process chart data
-      const chartData = processChartData(transactions);
+      // Process chart data (using orderItems for Stock Out trends)
+      const chartData = processChartData(orderItems);
       setChartData(chartData);
 
-      // Process recent activity
-      const activity = processRecentActivity(transactions);
+      // Process recent activity (merging products and orders)
+      const activity = processRecentActivity(recentOrders, products);
       setRecentActivity(activity);
+
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       toast.error("Failed to fetch dashboard data");
@@ -81,22 +134,19 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData, timeRange]);
 
-  const processChartData = (transactions) => {
-    if (!transactions || transactions.length === 0) {
+  const processChartData = (items) => {
+    if (!items || items.length === 0) {
       return [];
     }
 
-    // Group transactions by date and type
-    const groupedData = transactions.reduce((acc, transaction) => {
-      const date = new Date(transaction.timestamp).toLocaleDateString();
+    // Group items by date for "Stock Out"
+    const groupedData = items.reduce((acc, item) => {
+      const date = new Date(item.created_at).toLocaleDateString();
       if (!acc[date]) {
         acc[date] = { date, stockIn: 0, stockOut: 0 };
       }
-      if (transaction.type === "in") {
-        acc[date].stockIn += transaction.quantity;
-      } else {
-        acc[date].stockOut += transaction.quantity;
-      }
+      // Assuming all order items are "out" logic
+      acc[date].stockOut += item.quantity || 0;
       return acc;
     }, {});
 
@@ -106,21 +156,43 @@ const Dashboard = () => {
       .slice(-7); // Get last 7 days
   };
 
-  const processRecentActivity = (transactions) => {
-    if (!transactions || transactions.length === 0) {
-      return [];
+  const processRecentActivity = (orders, products) => {
+    let activities = [];
+
+    // Order Activities
+    if (orders && orders.length > 0) {
+      orders.forEach(order => {
+        activities.push({
+          id: "order-" + order.id,
+          type: "out",
+          description: `New Order #${order.id.slice(0, 8)} - ${order.status}`,
+          time: new Date(order.created_at),
+          timestamp: new Date(order.created_at).getTime()
+        });
+      });
     }
 
-    return transactions
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    // Product Activities (New Stock)
+    if (products && products.length > 0) {
+      // Take last 5 products
+      const recentProducts = [...products].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+      recentProducts.forEach(product => {
+        activities.push({
+          id: "prod-" + product.id,
+          type: "in",
+          description: `New Product Added: ${product.name}`,
+          time: new Date(product.created_at),
+          timestamp: new Date(product.created_at).getTime()
+        });
+      });
+    }
+
+    return activities
+      .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 5)
-      .map((transaction) => ({
-        id: transaction.id,
-        type: transaction.type,
-        description: `${
-          transaction.type === "in" ? "Stock in" : "Stock out"
-        } of ${transaction.quantity} units for ${transaction.productName}`,
-        time: new Date(transaction.timestamp).toLocaleString(),
+      .map((activity) => ({
+        ...activity,
+        time: activity.time.toLocaleString(),
       }));
   };
 
@@ -159,11 +231,10 @@ const Dashboard = () => {
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                timeRange === range
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${timeRange === range
+                ? "bg-primary text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
             >
               {range.charAt(0).toUpperCase() + range.slice(1)}
             </button>
@@ -271,9 +342,8 @@ const Dashboard = () => {
               >
                 <div className="flex items-center space-x-3">
                   <div
-                    className={`w-2 h-2 rounded-full ${
-                      activity.type === "in" ? "bg-green-500" : "bg-red-500"
-                    }`}
+                    className={`w-2 h-2 rounded-full ${activity.type === "in" ? "bg-green-500" : "bg-red-500"
+                      }`}
                   ></div>
                   <p className="text-gray-700">{activity.description}</p>
                 </div>
